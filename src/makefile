@@ -7,7 +7,7 @@ executableDir = ../build
 SDLincludeDir = $(libDir)/SDL/include/SDL2
 SDLlibraryDir = $(libDir)/SDL/lib
 
-LDFLAGS = -static -L$(SDLlibraryDir) -Wl,-rpath,$(SDLlibraryDir) -Wl,--enable-new-dtags
+LDFLAGS = -L$(SDLlibraryDir) -Wl,-rpath,$(SDLlibraryDir) -Wl,--enable-new-dtags
 LDLIBS = -lSDL2
 
 INCLUDES = -I$(SDLincludeDir)
