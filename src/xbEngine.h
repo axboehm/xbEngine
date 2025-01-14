@@ -1,6 +1,8 @@
 #ifndef XBENGINE_H // include guard begin
 #define XBENGINE_H // include guard
 
+#include "constants.h"
+
 #include <stdint.h> // defines fixed size types, C++ version is <cstdint>
 
 #define Kilobytes(value) (((uint64_t)value) * 1024)
@@ -10,9 +12,9 @@
 struct PlatformWindow;
 
 PlatformWindow *platformOpenWindow(char *windowTitle,
-                        uint32_t createWidth, uint32_t createHeight       );
-void platformCloseWindow(PlatformWindow *window);
-void platformGetWindowSize(PlatformWindow *window, int *width, int *height);
+                                   uint32_t createWidth, uint32_t createHeight);
+void platformCloseWindow(PlatformWindow *platformWindow);
+void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
 
 struct PlatformSoundDevice;
 
@@ -25,6 +27,8 @@ struct FileReadResultDEBUG {
     uint32_t  contentSize;
     void     *contents;
 };
+
+struct PlatformController;
 
 FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
 void platformFreeFileMemoryDEBUG(void *memory);
@@ -39,9 +43,9 @@ struct GameMemory {
 };
 
 struct GameTexture {
-    int             width;
-    int             height;
-    uint32_t        bytesPerPixel;
+    int              width;
+    int              height;
+    uint32_t         bytesPerPixel;
     PlatformTexture *memory;
     void            *textureMemory; //NOTE[ALEX]: currently the texture memory is not
                                     //            part of the allocated memory but separate from it
@@ -52,9 +56,8 @@ struct GameGlobal {
     int32_t  stopRendering;
     uint64_t gameFrame;
 
-    GameTexture testTexture; // currently screen texture (backbuffer)
-    uint32_t offsetX;
-    uint32_t offsetY;
+    int32_t offsetX; // for testing
+    int32_t offsetY;
 };
 
 struct ButtonState {
@@ -64,7 +67,18 @@ struct ButtonState {
 
 struct ControllerInput {
     union {
-        ButtonState buttons[12];
+        int16_t axes[6];
+        struct {
+            int16_t leftStickX;
+            int16_t leftStickY;
+            int16_t rightStickX;
+            int16_t rightStickY;
+            int16_t leftTrigger;
+            int16_t rightTrigger;
+        };
+    };
+    union {
+        ButtonState buttons[17];
         struct {
             ButtonState fUp;
             ButtonState fDown;
@@ -88,12 +102,15 @@ struct ControllerInput {
 
             ButtonState misc;   // xbox share button, ps microphone button
             ButtonState touch;  // ps touchpad press
+
+            ButtonState terminator; // always the last button
         };
     };
 };
 
 struct GameInput {
-    ControllerInput controller[4];
+    PlatformController *platformControllers[MAX_CONTROLLERS];
+    ControllerInput     controller[MAX_CONTROLLERS];
     union {
         ButtonState keys[101];
         struct {
@@ -229,6 +246,7 @@ struct GameClocks {
 
 struct GameBuffer {
     PlatformWindow *memory;
+    GameTexture     backBuffer;
     uint32_t        width;
     uint32_t        height;
 };
@@ -251,6 +269,10 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory);
 
 uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
 
+void platformCloseBuffer(GameBuffer *gameBuffer);
 void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture);
+void platformInitializeControllers(GameInput *gameInput);
+void platformResetControllers(GameInput *gameInput);
+void platformCloseControllers(GameInput *gameInput);
 
 #endif // include guard end
