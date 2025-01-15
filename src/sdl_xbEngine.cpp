@@ -1,3 +1,4 @@
+#include "SDL_audio.h"
 #include "SDL_events.h"
 #include "SDL_gamecontroller.h"
 #include "constants.h"
@@ -6,6 +7,7 @@
 #include <SDL.h>
 #include <cassert> // for assert macro
 #include <cstdio> // for printf
+#include <cstring> // for memset
 #include <chrono>
 #include <thread> // for multithreading and sleeping the thread
 
@@ -22,37 +24,35 @@ struct PlatformTexture {
     SDL_Texture *textureHandle;
 };
 
-struct PlatformSoundDevice {
-    int tmp;
-};
+void platformInit()
+{
+    int sdlInitCode = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO);
+    if (sdlInitCode != 0) {
+        printf("%s SDL_Init failed with code %i\n", __FUNCTION__, sdlInitCode);
+    }
+}
 
-PlatformWindow *platformOpenWindow(char *windowTitle,
-                        uint32_t createWidth, uint32_t createHeight       )
+PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint32_t createHeight)
 {
     PlatformWindow *platformWindow = (PlatformWindow *)malloc(sizeof(PlatformWindow));
     platformWindow->window   = 0;
     platformWindow->surface  = 0;
     platformWindow->renderer = 0;
 
-    int sdlInitCode = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
-    if (sdlInitCode == 0) {
-        platformWindow->window = SDL_CreateWindow(windowTitle,
-                                                  SDL_WINDOWPOS_UNDEFINED,
-                                                  SDL_WINDOWPOS_UNDEFINED,
-                                                  (int)createWidth, (int)createHeight,
-                                                  SDL_WINDOW_RESIZABLE                );
-        if (!platformWindow->window) {
-            printf("%s SDL_CreateWindow failed\n", __FUNCTION__);
-        } else {
-            platformWindow->renderer = SDL_CreateRenderer(platformWindow->window, -1, 0);
-            if (!platformWindow->renderer) {
-                printf("%s SDL_CreateRenderer failed\n", __FUNCTION__);
-            }
-        }
+    platformWindow->window = SDL_CreateWindow(windowTitle,
+                                              SDL_WINDOWPOS_UNDEFINED,
+                                              SDL_WINDOWPOS_UNDEFINED,
+                                              (int)createWidth, (int)createHeight,
+                                              SDL_WINDOW_RESIZABLE                );
+    if (!platformWindow->window) {
+        printf("%s SDL_CreateWindow failed\n", __FUNCTION__);
     } else {
-        printf("%s SDL_Init failed with code %i\n", __FUNCTION__, sdlInitCode);
+        platformWindow->renderer = SDL_CreateRenderer(platformWindow->window, -1, 0);
+        if (!platformWindow->renderer) {
+            printf("%s SDL_CreateRenderer failed\n", __FUNCTION__);
+        }
     }
-    //TODO[ALEX]: surface
+    //TODO[ALEX]: surface?
     
     return platformWindow;
 }
@@ -123,19 +123,47 @@ void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture)
     }
 }
 
-PlatformSoundDevice *platformOpenSoundDevice()
+void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, GameSound *gameSound)
 {
-    PlatformSoundDevice *platformSoundDevice = (PlatformSoundDevice *)malloc(sizeof(PlatformSoundDevice));
-    return platformSoundDevice;
+    assert(targetAudioFrameLatency > 0);
+
+    SDL_AudioSpec sdlAudioSettings = {};
+    sdlAudioSettings.freq     = AUDIO_SAMPLES_PER_SECOND;
+    sdlAudioSettings.format   = AUDIO_S16LSB; // signed 16bit little endian for each sample
+    sdlAudioSettings.channels = AUDIO_CHANNELS;
+    sdlAudioSettings.samples  = AUDIO_SAMPLES_PER_CALL; // buffer size per channel,
+                                                        // this will be passed per call,
+                                                        // so this is the minimum audio latency
+    sdlAudioSettings.callback = 0; // if left empty, SDL_QueueAudio can be used
+    
+    SDL_OpenAudio(&sdlAudioSettings, 0); //NOTE[ALEX]: passing 0 to the output will make this
+                                         //            modify the passed input instead
+
+    if (sdlAudioSettings.format != AUDIO_S16LSB) {
+        printf("%s format is not what was requested, but %u.\n",
+               __FUNCTION__, sdlAudioSettings.format            );
+    }
+    gameSound->bytesPerSamplePerChannel = sizeof(int16_t);
+    float targetLatency = (1.0f/60.0f) * (float)targetAudioFrameLatency;
+    gameSound->targetQueuedBytes =
+        (uint32_t)( targetLatency
+                   *(float)(AUDIO_SAMPLES_PER_SECOND*gameSound->bytesPerSamplePerChannel));
+
+    SDL_PauseAudio(0); // 0 for unpause, 1 for pause
 }
 
-void platformCloseSoundDevice(PlatformSoundDevice *platformSoundDevice)
+void platformCloseSoundDevice()
 {
-    if (platformSoundDevice) {
-        free(platformSoundDevice);
-    } else {
-        printf("%s no memory to free\n", __FUNCTION__);
+    SDL_CloseAudio(); //NOTE[ALEX]: also included in SDL_Quit();
+}
+
+void platformQueueAudio(GameSound *gameSound)
+{
+    if (gameSound->audioToQueueBytes) {
+        SDL_QueueAudio(1, gameSound->audioToQueue, gameSound->audioToQueueBytes);
     }
+    gameSound->queuedBytes = SDL_GetQueuedAudioSize(1);
+    // printf("%s, %u\n", __FUNCTION__, gameSound->queuedBytes);
 }
 
 FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName)
@@ -805,12 +833,17 @@ int main(int argc, char **argv)
     gameMemory.transientMem     = (uint64_t *)malloc(gameMemory.transientMemSize);
     // all memory is pre initialized to 0
     if (gameMemory.transientMem && gameMemory.permanentMem) {
-        for (uint64_t i = 0; i < gameMemory.permanentMemSize/sizeof(uint64_t); i++) {
-            gameMemory.permanentMem[i] = 0;
-        }
+#if 0
         for (uint64_t i = 0; i < gameMemory.transientMemSize/sizeof(uint64_t); i++) {
             gameMemory.transientMem[i] = 0;
         }
+        for (uint64_t i = 0; i < gameMemory.permanentMemSize/sizeof(uint64_t); i++) {
+            gameMemory.permanentMem[i] = 0;
+        }
+#else
+        memset(gameMemory.permanentMem, 0, gameMemory.permanentMemSize);
+        memset(gameMemory.transientMem, 0, gameMemory.transientMemSize);
+#endif
         gameMemory.initialized =  1;
     } else {
         printf("Could not allocated gameMemory: transient: %lu, permanent: %lu\n",
@@ -849,12 +882,13 @@ int main(int argc, char **argv)
         (std::chrono::high_resolution_clock::now().time_since_epoch()).count();
     gameClocks->cyclesStart = __rdtsc();
 
+    platformInit();
     gameBuffer->memory = platformOpenWindow((char *)WINDOW_TITLE,
                                             WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT    );
-    gameSound->memory = platformOpenSoundDevice();
+    uint32_t targetAudioFrameLatency = 4;
+    platformOpenSoundDevice(targetAudioFrameLatency, gameSound);
     platformInitializeControllers(gameInput);
 
-    //NOTE[ALEX]: test texture
     gameBuffer->backBuffer.width         = 1024;
     gameBuffer->backBuffer.height        = 1024;
     gameBuffer->backBuffer.bytesPerPixel = 4;
@@ -863,6 +897,12 @@ int main(int argc, char **argv)
     platformGetWindowSize(gameBuffer->memory, &gameBuffer->backBuffer.width,
                                               &gameBuffer->backBuffer.height);
     platformResizeTexture(gameBuffer, &gameBuffer->backBuffer);
+
+    //audio test
+    gameGlobal->toneHz = 256;
+    gameGlobal->toneVolume = 500;
+    gameGlobal->squareWavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
+    gameGlobal->halfSquareWavePeriod = gameGlobal->squareWavePeriod / 2;
 
     // MAIN LOOP
     while (!gameGlobal->quitGame) {
@@ -874,15 +914,16 @@ int main(int argc, char **argv)
         }
 
         gameUpdate(gameState, &gameMemory);
+        platformQueueAudio(gameSound);
 
         platformUpdateWindow(gameBuffer, &gameBuffer->backBuffer);
     }
 
     // CLEANUP
+    platformCloseControllers(gameInput);
+    platformCloseSoundDevice();
     platformCloseWindow((PlatformWindow *)gameBuffer->memory);
     platformCloseBuffer(gameBuffer);
-    platformCloseSoundDevice((PlatformSoundDevice *)gameSound->memory);
-    platformCloseControllers(gameInput);
 
     free(gameMemory.transientMem);
     free(gameMemory.permanentMem);

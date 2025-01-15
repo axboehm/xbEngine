@@ -130,6 +130,38 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory)
     }
 
     // audio test
+    gameState->gameGlobal.toneHz = 256 +
+        (uint32_t)(512.0f*(  (float)gameState->gameInput.controller[0].leftTrigger
+                           / (float)CONTR_AXIS_NORMALIZATION                      ));
+    gameState->gameGlobal.squareWavePeriod = AUDIO_SAMPLES_PER_SECOND / gameState->gameGlobal.toneHz;
+    gameState->gameGlobal.halfSquareWavePeriod = gameState->gameGlobal.squareWavePeriod / 2;
+
+    gameState->gameSound.audioToQueueBytes =  gameState->gameSound.targetQueuedBytes
+                                             -gameState->gameSound.queuedBytes;
+    if (gameState->gameSound.audioToQueueBytes > sizeof(gameState->gameSound.audioToQueue)) {
+        printf("%s out of bounds of audioToQueue\n", __FUNCTION__);
+    }
+    // printf("target: %u, queued: %u\n", gameState->gameSound.targetQueuedBytes,
+    //                                    gameState->gameSound.queuedBytes       );
+
+    if (gameState->gameSound.audioToQueueBytes) {
+        int16_t *sampleOut   = gameState->gameSound.audioToQueue;
+        uint32_t sampleCount =   gameState->gameSound.audioToQueueBytes
+                               /(gameState->gameSound.bytesPerSamplePerChannel*AUDIO_CHANNELS);
+
+        for (uint32_t i = 0; i < sampleCount; i++) {
+            int16_t sampleValue = gameState->gameGlobal.toneVolume;
+            if (( gameState->gameGlobal.runningSampleIndex 
+                 /gameState->gameGlobal.halfSquareWavePeriod) % 2 == 0) {
+                sampleValue *= -1;
+            }
+            gameState->gameGlobal.runningSampleIndex++;
+            for (uint32_t j = 0; j < AUDIO_CHANNELS; j++) {
+                *sampleOut = sampleValue;
+                sampleOut++;
+            }
+        }
+    }
 
     // retrieve id of specific key:
     // printf("ID of key 'x': %u\n", getKeyID(&gameState->gameInput.x, &gameState->gameInput));

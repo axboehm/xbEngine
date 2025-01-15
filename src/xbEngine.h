@@ -10,32 +10,16 @@
 #define Gigabytes(value) (((uint64_t)value) * 1024 * 1024 * 1024)
 
 struct PlatformWindow;
-
-PlatformWindow *platformOpenWindow(char *windowTitle,
-                                   uint32_t createWidth, uint32_t createHeight);
-void platformCloseWindow(PlatformWindow *platformWindow);
-void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
-
-struct PlatformSoundDevice;
-
-PlatformSoundDevice *platformOpenSoundDevice();
-void platformCloseSoundDevice(PlatformSoundDevice *platformSoundDevice);
-
 struct PlatformTexture;
+struct PlatformController;
 
 struct FileReadResultDEBUG {
     uint32_t  contentSize;
     void     *contents;
 };
 
-struct PlatformController;
-
-FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
-void platformFreeFileMemoryDEBUG(void *memory);
-int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memorySize);
-
 struct GameMemory {
-    int32_t   initialized;
+    uint8_t   initialized;
     uint64_t  permanentMemSize;
     uint64_t *permanentMem; //NOTE[ALEX]: this is uint64_t, only so that I can initialize to 0
     uint64_t  transientMemSize;
@@ -56,8 +40,16 @@ struct GameGlobal {
     int32_t  stopRendering;
     uint64_t gameFrame;
 
-    int32_t offsetX; // for testing
-    int32_t offsetY;
+    //TODO[ALEX]: testing!
+    // gradient
+    int32_t  offsetX; //TODO[ALEX]: this should be in transient memory!
+    int32_t  offsetY;
+    // audio
+    uint32_t runningSampleIndex;
+    uint32_t toneHz;
+    uint32_t toneVolume;
+    uint32_t squareWavePeriod;
+    uint32_t halfSquareWavePeriod;
 };
 
 struct ButtonState {
@@ -265,7 +257,11 @@ struct GameBuffer {
 };
 
 struct GameSound {
-    PlatformSoundDevice *memory;
+    uint16_t bytesPerSamplePerChannel;
+    int16_t  audioToQueue[AUDIO_MAX_LATENCY_SECONDS*AUDIO_SAMPLES_PER_SECOND*AUDIO_CHANNELS];
+    uint32_t audioToQueueBytes; // how many new bytes to queue up
+    uint32_t queuedBytes;       // how many bytes are currently queued up
+    uint32_t targetQueuedBytes; // controls latency (how many bytes to queue up at most)
 };
 
 struct GameState {
@@ -277,15 +273,32 @@ struct GameState {
     GameSound  gameSound;
 };
 
-void platformHandleEvents(GameInput *gameInput, GameGlobal *gameGlobal);
-void gameUpdate(GameState *gameState, GameMemory *gameMemory);
+void platformInit();
 
-uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
-
+PlatformWindow *platformOpenWindow(char *windowTitle,
+                                   uint32_t createWidth, uint32_t createHeight);
+void platformCloseWindow(PlatformWindow *platformWindow);
+void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
 void platformCloseBuffer(GameBuffer *gameBuffer);
+
 void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture);
+
+void platformOpenSoundDevice(float targetLatency, GameSound *gameSound);
+void platformCloseSoundDevice();
+void platformQueueAudio(GameSound *gameSound);
+
 void platformInitializeControllers(GameInput *gameInput);
 void platformResetControllers(GameInput *gameInput);
 void platformCloseControllers(GameInput *gameInput);
+
+FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
+void platformFreeFileMemoryDEBUG(void *memory);
+int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memorySize);
+
+void platformHandleEvents(GameInput *gameInput, GameGlobal *gameGlobal);
+
+void gameUpdate(GameState *gameState, GameMemory *gameMemory);
+
+uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
 
 #endif // include guard end
