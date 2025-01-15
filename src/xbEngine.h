@@ -103,7 +103,7 @@ struct ControllerInput {
             ButtonState misc;   // xbox share button, ps microphone button
             ButtonState touch;  // ps touchpad press
 
-            ButtonState terminator; // always the last button
+            ButtonState terminatorContr; // always the last button
         };
     };
 };
@@ -111,6 +111,23 @@ struct ControllerInput {
 struct GameInput {
     PlatformController *platformControllers[MAX_CONTROLLERS];
     ControllerInput     controller[MAX_CONTROLLERS];
+
+    uint32_t mousePosX;
+    uint32_t mousePosY;
+    int32_t  mouseScrH;
+    int32_t  mouseScrV;
+    union {
+        ButtonState mButtons[5];
+        struct {
+            ButtonState m1;
+            ButtonState m2;
+            ButtonState m3;
+            ButtonState m4;
+            ButtonState m5;
+
+            ButtonState terminatorMouse; // always the last button
+        };
+    };
     union {
         ButtonState keys[101];
         struct {
@@ -226,13 +243,9 @@ struct GameInput {
             ButtonState numNine;
             ButtonState numZero;
 
-            ButtonState terminator; // always the last button
+            ButtonState terminatorKeys; // always the last button
         };
     };
-    uint32_t mousePosX;
-    uint32_t mousePosY;
-    // triggers
-    // analog sticks
 };
 
 struct GameClocks {

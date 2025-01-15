@@ -217,6 +217,17 @@ void buttonStateUpdateDown(ButtonState *buttonState)
     }
 }
 
+void SDL2MouseButtonDown(SDL_Event mouseButtonEvent, GameInput *gameInput)
+{
+    switch(mouseButtonEvent.button.button) {
+        case SDL_BUTTON_LEFT:   buttonStateUpdateDown(&gameInput->m1); break;
+        case SDL_BUTTON_MIDDLE: buttonStateUpdateDown(&gameInput->m2); break;
+        case SDL_BUTTON_RIGHT:  buttonStateUpdateDown(&gameInput->m3); break;
+        case SDL_BUTTON_X1:     buttonStateUpdateDown(&gameInput->m4); break;
+        case SDL_BUTTON_X2:     buttonStateUpdateDown(&gameInput->m5); break;
+    }
+}
+
 void SDL2KeyboardKeyDown(SDL_Event keyEvent, GameInput *gameInput)
 {
     switch (keyEvent.key.keysym.sym) {
@@ -340,6 +351,17 @@ void buttonStateUpdateUp(ButtonState *buttonState)
     buttonState->transitionCount += 1;
 }
 
+void SDL2MouseButtonUp(SDL_Event mouseButtonEvent, GameInput *gameInput)
+{
+    switch(mouseButtonEvent.button.button) {
+        case SDL_BUTTON_LEFT:   buttonStateUpdateUp(&gameInput->m1); break;
+        case SDL_BUTTON_MIDDLE: buttonStateUpdateUp(&gameInput->m2); break;
+        case SDL_BUTTON_RIGHT:  buttonStateUpdateUp(&gameInput->m3); break;
+        case SDL_BUTTON_X1:     buttonStateUpdateUp(&gameInput->m4); break;
+        case SDL_BUTTON_X2:     buttonStateUpdateUp(&gameInput->m5); break;
+    }
+}
+
 void SDL2KeyboardKeyUp(SDL_Event keyEvent, GameInput *gameInput)
 {
     switch (keyEvent.key.keysym.sym) {
@@ -456,9 +478,30 @@ void SDL2KeyboardKeyUp(SDL_Event keyEvent, GameInput *gameInput)
     }
 }
 
-void SDL2ControllerButtonDown(SDL_Event cButtonEvent, ControllerInput *controllerInput)
+struct PlatformController {
+    SDL_GameController *controllerHandle;
+    SDL_JoystickID      sdlID; //NOTE[ALEX]: every time a controller gets plugged in, it gets a
+                               //            new ID, use this to reference where to store input
+                               //            -1 is an invalid ID and should be the initialized value
+};
+
+int32_t SDL2FindControllerID(GameInput *gameInput, SDL_JoystickID joystickID)
 {
-    uint32_t controllerID = cButtonEvent.cbutton.which;
+    for (int32_t i = 0; i < MAX_CONTROLLERS; i++) {
+        if (joystickID == gameInput->platformControllers[i]->sdlID) {
+            return i;
+        }
+    }
+    printf("%s Could not find corresponding controller %i.\n", __FUNCTION__, joystickID);
+    return -1;
+}
+
+void SDL2ControllerButtonDown(SDL_Event cButtonEvent, GameInput *gameInput,
+                              ControllerInput *controllerInput             )
+{
+    int32_t controllerID = SDL2FindControllerID(gameInput, cButtonEvent.cbutton.which);
+    if (controllerID == -1) { return; }
+
     switch (cButtonEvent.cbutton.button) {
         case SDL_CONTROLLER_BUTTON_A:             
             buttonStateUpdateDown(&controllerInput[controllerID].fDown); break;
@@ -497,9 +540,12 @@ void SDL2ControllerButtonDown(SDL_Event cButtonEvent, ControllerInput *controlle
     }
 }
 
-void SDL2ControllerButtonUp(SDL_Event cButtonEvent, ControllerInput *controllerInput)
+void SDL2ControllerButtonUp(SDL_Event cButtonEvent, GameInput *gameInput,
+                            ControllerInput *controllerInput             )
 {
-    uint32_t controllerID = cButtonEvent.cbutton.which;
+    int32_t controllerID = SDL2FindControllerID(gameInput, cButtonEvent.cbutton.which);
+    if (controllerID == -1) { return; }
+
     switch (cButtonEvent.cbutton.button) {
         case SDL_CONTROLLER_BUTTON_A:             
             buttonStateUpdateUp(&controllerInput[controllerID].fDown); break;
@@ -538,9 +584,9 @@ void SDL2ControllerButtonUp(SDL_Event cButtonEvent, ControllerInput *controllerI
     }
 }
 
-void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, ControllerInput *controllerInput)
+void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, GameInput *gameInput,
+                              ControllerInput *controllerInput           )
 {
-    uint32_t controllerID = cAxisEvent.caxis.which;
     int16_t axisValue = cAxisEvent.caxis.value;
     if (axisValue >= -CONTR_AXIS_DEADZONE_INNER && axisValue <= CONTR_AXIS_DEADZONE_INNER) {
         axisValue = 0;
@@ -557,6 +603,9 @@ void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, ControllerInput *controllerI
               axisValueNormalized *= (float)CONTR_AXIS_NORMALIZATION;
         axisValue = (int16_t)axisValueNormalized;
     }
+
+    int32_t controllerID = SDL2FindControllerID(gameInput, cAxisEvent.caxis.which);
+    if (controllerID == -1) { return; }
 
     //NOTE[ALEX]: pushing a stick forward returns a negative value, so the y axes are inverted
     switch (cAxisEvent.caxis.axis) {
@@ -575,9 +624,7 @@ void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, ControllerInput *controllerI
     }
 }
 
-struct PlatformController {
-    SDL_GameController *controllerHandle;
-};
+//TODO[ALEX]: replugging moves index up
 
 void platformInitializeControllers(GameInput *gameInput)
 {
@@ -586,6 +633,7 @@ void platformInitializeControllers(GameInput *gameInput)
             gameInput->platformControllers[i] =
                 (PlatformController *)malloc(sizeof(PlatformController));
             gameInput->platformControllers[i]->controllerHandle = 0;
+            gameInput->platformControllers[i]->sdlID = -1;
         } else {
             printf("%s controller already initialized.\n", __FUNCTION__);
         }
@@ -614,6 +662,7 @@ void platformResetControllers(GameInput *gameInput)
             if (gameInput->platformControllers[i]->controllerHandle) {
                 SDL_GameControllerClose(gameInput->platformControllers[i]->controllerHandle);
                 gameInput->platformControllers[i]->controllerHandle = 0;
+                gameInput->platformControllers[i]->sdlID = -1;
                 printf("Closed Game Controller %u.\n", i);
             }
         } else {
@@ -622,6 +671,7 @@ void platformResetControllers(GameInput *gameInput)
     }
 
     uint32_t maxControllers  = SDL_NumJoysticks();
+    printf("maxControllers: %u\n", maxControllers);
     uint32_t controllerIndex = 0;
     for (uint32_t i = 0; i < maxControllers; i++) { // open all connected controllers
         if (!SDL_IsGameController(i)) { continue; }
@@ -631,13 +681,23 @@ void platformResetControllers(GameInput *gameInput)
         }
         gameInput->platformControllers[controllerIndex]->controllerHandle =
             SDL_GameControllerOpen(i);
-        printf("Opened Game Controller %u.\n", i);
+        SDL_Joystick* joystick = SDL_GameControllerGetJoystick(
+            gameInput->platformControllers[controllerIndex]->controllerHandle);
+        gameInput->platformControllers[controllerIndex]->sdlID = SDL_JoystickInstanceID(joystick);
+
+        // gameInput->platformControllers[controllerIndex]->sdlID = 
+        printf("Opened Game Controller %u to controllerIndex %u with sdlID %i.\n",
+               i, controllerIndex, gameInput->platformControllers[controllerIndex]->sdlID);
         controllerIndex++;
     }
 }
 
 void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlobal *gameGlobal)
 {
+    // cleanup from previous frame to prevent inputs sticking
+    gameInput->mouseScrH = 0;
+    gameInput->mouseScrV = 0;
+
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -675,13 +735,16 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
                 SDL2KeyboardKeyUp(event, gameInput);
             } break;
             case SDL_MOUSEBUTTONDOWN: {
+                SDL2MouseButtonDown(event, gameInput);
             } break;
             case SDL_MOUSEBUTTONUP: {
+                SDL2MouseButtonUp(event, gameInput);
             } break;
             case SDL_MOUSEWHEEL: {
+                gameInput->mouseScrH = event.wheel.x;
+                gameInput->mouseScrV = event.wheel.y;
             } break;
             case SDL_MOUSEMOTION: { // position of mouse pixel pos in window
-                //TODO[ALEX]: does this stick?
                 gameInput->mousePosX = event.motion.x;
                 gameInput->mousePosY = event.motion.y;
             } break;
@@ -692,18 +755,15 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
                 platformResetControllers(gameInput);
             } break;
             case SDL_CONTROLLERDEVICEREMAPPED: {
-                platformResetControllers(gameInput);
             } break;
             case SDL_CONTROLLERBUTTONDOWN: {
-                printf("controllerbuttondown\n");
-                SDL2ControllerButtonDown(event, gameInput->controller);
+                SDL2ControllerButtonDown(event, gameInput, gameInput->controller);
             } break;
             case SDL_CONTROLLERBUTTONUP: {
-                printf("controllerbuttonup\n");
-                SDL2ControllerButtonUp(event, gameInput->controller);
+                SDL2ControllerButtonUp(event, gameInput, gameInput->controller);
             } break;
             case SDL_CONTROLLERAXISMOTION: {
-                SDL2ControllerAxisMotion(event, gameInput->controller);
+                SDL2ControllerAxisMotion(event, gameInput, gameInput->controller);
             } break;
             case SDL_JOYBUTTONDOWN: { // controllers trigger both this and controllerbuttondown
             } break;
@@ -778,9 +838,11 @@ int main(int argc, char **argv)
     GameBuffer *gameBuffer = &gameState->gameBuffer;
     GameSound  *gameSound  = &gameState->gameSound;
 
-    assert(   &gameInput->terminator - &gameInput->keys[0]
+    assert(   &gameInput->terminatorMouse - &gameInput->mButtons[0]
+           == sizeof(gameInput->mButtons)/sizeof(gameInput->mButtons[0]));
+    assert(   &gameInput->terminatorKeys - &gameInput->keys[0]
            == sizeof(gameInput->keys)/sizeof(gameInput->keys[0]));
-    assert(   &gameInput->controller[0].terminator - &gameInput->controller[0].buttons[0]
+    assert(   &gameInput->controller[0].terminatorContr - &gameInput->controller[0].buttons[0]
            == sizeof(gameInput->controller[0].buttons)/sizeof(gameInput->controller[0].buttons[0]));
 
     gameClocks->timeStart   = std::chrono::duration_cast<std::chrono::milliseconds>

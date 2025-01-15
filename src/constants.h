@@ -2,7 +2,8 @@
 #define CONSTANTS_H // include guard
 
 // DEBUG
-//#define INPUT_TEST
+#define INPUT_TEST
+#define INPUT_TEST_MOUSE
 #define INPUT_TEST_AXES
 #define INPUT_TEST_PRESSES
 #define INPUT_TEST_DOWNS

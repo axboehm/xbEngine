@@ -17,8 +17,32 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory)
         return;
     }
 
-    // keyboard test
 #ifdef INPUT_TEST
+    // mouse test
+#ifdef INPUT_TEST_MOUSE
+    printf("Mouse pos(x, y): %u, %u, scr(h, v): %i, %i\n",
+           gameState->gameInput.mousePosX, gameState->gameInput.mousePosY,
+           gameState->gameInput.mouseScrH, gameState->gameInput.mouseScrV );
+#endif
+
+    uint32_t mButtonCount =  sizeof(gameState->gameInput.mButtons)
+                            /sizeof(gameState->gameInput.mButtons[0]);
+    for (uint32_t i = 0; i < mButtonCount; i++) {
+#ifdef INPUT_TEST_DOWNS
+        if (gameState->gameInput.mButtons[i].isDown) {
+            printf("Mouse button %u held down\n", i);
+        }
+#endif
+#ifdef INPUT_TEST_PRESSES
+        if (gameState->gameInput.mButtons[i].transitionCount > 1) {
+            uint32_t presses = gameState->gameInput.mButtons[i].transitionCount/2;
+            printf("Mouse button %u pressed %u times\n", i, presses);
+            gameState->gameInput.mButtons[i].transitionCount %= 2;
+        }
+#endif
+    }
+
+    // keyboard test
     uint32_t keyCount = sizeof(gameState->gameInput.keys)/sizeof(gameState->gameInput.keys[0]);
     for (uint32_t i = 0; i < keyCount; i++) {
 #ifdef INPUT_TEST_DOWNS
