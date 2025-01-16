@@ -1,0 +1,36 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-Wall",
+      "-g",
+      "-I../lib/SDL/include/SDL2",
+      "-D_REENTRANT",
+      "-D_XB_SLOW",
+      "-o",
+      "../build/obj/sdl_xbEngine.o",
+      "sdl_xbEngine.cpp"
+    ],
+    "directory": "/athena/PROJECTS/k_pman/xbEngine/src",
+    "file": "/athena/PROJECTS/k_pman/xbEngine/src/sdl_xbEngine.cpp",
+    "output": "/athena/PROJECTS/k_pman/xbEngine/build/obj/sdl_xbEngine.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-Wall",
+      "-g",
+      "-I../lib/SDL/include/SDL2",
+      "-D_REENTRANT",
+      "-D_XB_SLOW",
+      "-o",
+      "../build/obj/xbEngine.o",
+      "xbEngine.cpp"
+    ],
+    "directory": "/athena/PROJECTS/k_pman/xbEngine/src",
+    "file": "/athena/PROJECTS/k_pman/xbEngine/src/xbEngine.cpp",
+    "output": "/athena/PROJECTS/k_pman/xbEngine/build/obj/xbEngine.o"
+  }
+]

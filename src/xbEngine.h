@@ -5,19 +5,6 @@
 
 #include <stdint.h> // defines fixed size types, C++ version is <cstdint>
 
-#define Kilobytes(value) (((uint64_t)value) * 1024)
-#define Megabytes(value) (((uint64_t)value) * 1024 * 1024)
-#define Gigabytes(value) (((uint64_t)value) * 1024 * 1024 * 1024)
-
-struct PlatformWindow;
-struct PlatformTexture;
-struct PlatformController;
-
-struct FileReadResultDEBUG {
-    uint32_t  contentSize;
-    void     *contents;
-};
-
 struct GameMemory {
     uint8_t   initialized;
     uint64_t  permanentMemSize;
@@ -27,12 +14,12 @@ struct GameMemory {
 };
 
 struct GameTexture {
-    int              width;
-    int              height;
-    uint32_t         bytesPerPixel;
-    PlatformTexture *memory;
-    void            *textureMemory; //NOTE[ALEX]: currently the texture memory is not
-                                    //            part of the allocated memory but separate from it
+    int       width;
+    int       height;
+    uint32_t  bytesPerPixel;
+    void     *memory; // PlatformTexture
+    void     *textureMemory; //NOTE[ALEX]: currently the texture memory is not
+                             //            part of the allocated memory but separate from it
 };
 
 struct GameGlobal {
@@ -45,11 +32,12 @@ struct GameGlobal {
     int32_t  offsetX; //TODO[ALEX]: this should be in transient memory!
     int32_t  offsetY;
     // audio
+    float    tWave;
     uint32_t runningSampleIndex;
     uint32_t toneHz;
     uint32_t toneVolume;
-    uint32_t squareWavePeriod;
-    uint32_t halfSquareWavePeriod;
+    uint32_t wavePeriod;
+    uint32_t halfWavePeriod;
 };
 
 struct ButtonState {
@@ -101,8 +89,8 @@ struct ControllerInput {
 };
 
 struct GameInput {
-    PlatformController *platformControllers[MAX_CONTROLLERS];
-    ControllerInput     controller[MAX_CONTROLLERS];
+    void            *platformControllers[MAX_CONTROLLERS]; // PlatformController
+    ControllerInput  controller[MAX_CONTROLLERS];
 
     uint32_t mousePosX;
     uint32_t mousePosY;
@@ -241,19 +229,22 @@ struct GameInput {
 };
 
 struct GameClocks {
-    int64_t  timeStart;
-    int64_t  timeEnd;
-    int64_t  timeLastFrame;
-    uint64_t cyclesStart;
-    uint64_t cyclesEnd;
-    uint64_t cyclesLastFrame;
+    uint64_t perfCountFrequency;
+    uint64_t lastPerfCounter;
+    uint64_t endPerfCounter;
+    uint64_t elapsedPerfCounter;
+    float    msPerFrame;
+    float    framesPerSecond;
+    uint64_t lastCycleCount;
+    uint64_t endCycleCount;
+    uint64_t elapsedCycleCount;
 };
 
 struct GameBuffer {
-    PlatformWindow *memory;
-    GameTexture     backBuffer;
-    uint32_t        width;
-    uint32_t        height;
+    void        *memory; // PlatformWindow
+    GameTexture  backBuffer;
+    uint32_t     width;
+    uint32_t     height;
 };
 
 struct GameSound {
@@ -272,30 +263,6 @@ struct GameState {
     GameBuffer gameBuffer;
     GameSound  gameSound;
 };
-
-void platformInit();
-
-PlatformWindow *platformOpenWindow(char *windowTitle,
-                                   uint32_t createWidth, uint32_t createHeight);
-void platformCloseWindow(PlatformWindow *platformWindow);
-void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
-void platformCloseBuffer(GameBuffer *gameBuffer);
-
-void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture);
-
-void platformOpenSoundDevice(float targetLatency, GameSound *gameSound);
-void platformCloseSoundDevice();
-void platformQueueAudio(GameSound *gameSound);
-
-void platformInitializeControllers(GameInput *gameInput);
-void platformResetControllers(GameInput *gameInput);
-void platformCloseControllers(GameInput *gameInput);
-
-FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
-void platformFreeFileMemoryDEBUG(void *memory);
-int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memorySize);
-
-void platformHandleEvents(GameInput *gameInput, GameGlobal *gameGlobal);
 
 void gameUpdate(GameState *gameState, GameMemory *gameMemory);
 

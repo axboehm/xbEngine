@@ -1,22 +1,23 @@
-#include "SDL_audio.h"
-#include "SDL_events.h"
-#include "SDL_gamecontroller.h"
 #include "constants.h"
 #include "xbEngine.h"
+#include "sdl_xbEngine.h"
 
 #include <SDL.h>
-#include <cassert> // for assert macro
+#include <SDL_audio.h>
+#include <SDL_events.h>
+#include <SDL_gamecontroller.h>
+// #include <cassert> // for assert macro - use xbAssert from constants.h
 #include <cstdio> // for printf
 #include <cstring> // for memset
-#include <chrono>
-#include <thread> // for multithreading and sleeping the thread
+// #include <thread> // for multithreading and sleeping the thread
+// #include <chrono> // for sleep
+#include <immintrin.h> // for __rdtsc (should work on all x86 compilers)
 
 //NOTE[ALEX]: platform dependent code should stay in this file,
 //            all other files should be independent of the platform
 
 struct PlatformWindow {
     SDL_Window   *window;
-    SDL_Surface  *surface;
     SDL_Renderer *renderer;
 };
 
@@ -32,11 +33,32 @@ void platformInit()
     }
 }
 
+void platformInitClocks(GameClocks *gameClocks)
+{
+    gameClocks->perfCountFrequency = SDL_GetPerformanceFrequency();
+    platformGetClocks(gameClocks);
+}
+
+void platformGetClocks(GameClocks *gameClocks)
+{
+    gameClocks->endPerfCounter     = SDL_GetPerformanceCounter();
+    gameClocks->elapsedPerfCounter = gameClocks->endPerfCounter - gameClocks->lastPerfCounter;
+    gameClocks->lastPerfCounter = gameClocks->endPerfCounter;
+
+    gameClocks->msPerFrame =   (1000.0f * (float)gameClocks->elapsedPerfCounter)
+                             / (float)(gameClocks->perfCountFrequency);
+    gameClocks->framesPerSecond =   (float)(gameClocks->perfCountFrequency)
+                                  / (float)(gameClocks->elapsedPerfCounter);
+
+    gameClocks->endCycleCount     = __rdtsc();
+    gameClocks->elapsedCycleCount = gameClocks->endCycleCount - gameClocks->lastCycleCount;
+    gameClocks->lastCycleCount    = gameClocks->endCycleCount;
+}
+
 PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint32_t createHeight)
 {
     PlatformWindow *platformWindow = (PlatformWindow *)malloc(sizeof(PlatformWindow));
     platformWindow->window   = 0;
-    platformWindow->surface  = 0;
     platformWindow->renderer = 0;
 
     platformWindow->window = SDL_CreateWindow(windowTitle,
@@ -52,7 +74,6 @@ PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint
             printf("%s SDL_CreateRenderer failed\n", __FUNCTION__);
         }
     }
-    //TODO[ALEX]: surface?
     
     return platformWindow;
 }
@@ -69,7 +90,6 @@ void platformCloseWindow(PlatformWindow *platformWindow)
     } else {
         printf("%s no renderer to destroy\n", __FUNCTION__);
     }
-    //TODO[ALEX]: surface
     
     SDL_Quit();
 
@@ -99,23 +119,22 @@ void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *heig
     SDL_GetWindowSize(platformWindow->window, width, height);
 }
 
-void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture)
-//SDL_Renderer *renderer, sdlTexture *texture)
+void platformResizeTexture(PlatformWindow *platformWindow, PlatformTexture *platformTexture,
+                           GameTexture *gameTexture                                         )
 {
-
-    if (gameTexture->memory->textureHandle != 0) {
-        SDL_DestroyTexture(gameTexture->memory->textureHandle); 
+    if (platformTexture->textureHandle != 0) {
+        SDL_DestroyTexture(platformTexture->textureHandle); 
     }
     if (gameTexture->textureMemory) { 
         free(gameTexture->textureMemory); 
     }
 
-    if (gameBuffer->memory->renderer) {
-        gameTexture->memory->textureHandle = SDL_CreateTexture(gameBuffer->memory->renderer,
-                                                               SDL_PIXELFORMAT_ARGB8888,
-                                                               SDL_TEXTUREACCESS_STREAMING,
-                                                               gameTexture->width,
-                                                               gameTexture->height          );
+    if (platformWindow->renderer) {
+        platformTexture->textureHandle = SDL_CreateTexture(platformWindow->renderer,
+                                                           SDL_PIXELFORMAT_ARGB8888,
+                                                           SDL_TEXTUREACCESS_STREAMING,
+                                                           gameTexture->width,
+                                                           gameTexture->height         );
         gameTexture->textureMemory = malloc(  gameTexture->bytesPerPixel
                                             * gameTexture->width * gameTexture->height);
     } else {
@@ -125,7 +144,7 @@ void platformResizeTexture(GameBuffer *gameBuffer, GameTexture *gameTexture)
 
 void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, GameSound *gameSound)
 {
-    assert(targetAudioFrameLatency > 0);
+    xbAssert(targetAudioFrameLatency > 0);
 
     SDL_AudioSpec sdlAudioSettings = {};
     sdlAudioSettings.freq     = AUDIO_SAMPLES_PER_SECOND;
@@ -157,10 +176,10 @@ void platformCloseSoundDevice()
     SDL_CloseAudio(); //NOTE[ALEX]: also included in SDL_Quit();
 }
 
-void platformQueueAudio(GameSound *gameSound)
+void platformQueueAudio(GameSound *gameSound, int16_t *audioToQueue, uint32_t audioToQueueBytes)
 {
-    if (gameSound->audioToQueueBytes) {
-        SDL_QueueAudio(1, gameSound->audioToQueue, gameSound->audioToQueueBytes);
+    if (audioToQueueBytes) {
+        SDL_QueueAudio(1, audioToQueue, audioToQueueBytes);
     }
     gameSound->queuedBytes = SDL_GetQueuedAudioSize(1);
     // printf("%s, %u\n", __FUNCTION__, gameSound->queuedBytes);
@@ -374,7 +393,7 @@ void SDL2KeyboardKeyDown(SDL_Event keyEvent, GameInput *gameInput)
 
 void buttonStateUpdateUp(ButtonState *buttonState)
 {
-    assert(buttonState->isDown == 1); // there is no keyrepeat for letting go of a key
+    xbAssert(buttonState->isDown == 1); // there is no keyrepeat for letting go of a key
     buttonState->isDown = 0;
     buttonState->transitionCount += 1;
 }
@@ -516,7 +535,9 @@ struct PlatformController {
 int32_t SDL2FindControllerID(GameInput *gameInput, SDL_JoystickID joystickID)
 {
     for (int32_t i = 0; i < MAX_CONTROLLERS; i++) {
-        if (joystickID == gameInput->platformControllers[i]->sdlID) {
+        PlatformController *platformController =
+            (PlatformController *)(gameInput->platformControllers[i]);
+        if (joystickID == platformController->sdlID) {
             return i;
         }
     }
@@ -658,10 +679,11 @@ void platformInitializeControllers(GameInput *gameInput)
 {
     for (uint32_t i = 0; i < MAX_CONTROLLERS; i++) {
         if (!gameInput->platformControllers[i]) {
-            gameInput->platformControllers[i] =
+            PlatformController *platformController =
                 (PlatformController *)malloc(sizeof(PlatformController));
-            gameInput->platformControllers[i]->controllerHandle = 0;
-            gameInput->platformControllers[i]->sdlID = -1;
+            platformController->controllerHandle = 0;
+            platformController->sdlID = -1;
+            gameInput->platformControllers[i] = platformController;
         } else {
             printf("%s controller already initialized.\n", __FUNCTION__);
         }
@@ -672,8 +694,10 @@ void platformCloseControllers(GameInput *gameInput)
 {
     for (uint32_t i = 0; i < MAX_CONTROLLERS; i++) {
         if (gameInput->platformControllers[i]) {
-            if (gameInput->platformControllers[i]->controllerHandle) {
-                SDL_GameControllerClose(gameInput->platformControllers[i]->controllerHandle);
+            PlatformController *platformController =
+                (PlatformController *)(gameInput->platformControllers[i]);
+            if (platformController->controllerHandle) {
+                SDL_GameControllerClose(platformController->controllerHandle);
                 printf("Closed Game Controller %u.\n", i);
             }
             free(gameInput->platformControllers[i]);
@@ -687,10 +711,12 @@ void platformResetControllers(GameInput *gameInput)
 {
     for (uint32_t i = 0; i < MAX_CONTROLLERS; i++) { // close all existing controllers
         if (gameInput->platformControllers[i]) {
-            if (gameInput->platformControllers[i]->controllerHandle) {
-                SDL_GameControllerClose(gameInput->platformControllers[i]->controllerHandle);
-                gameInput->platformControllers[i]->controllerHandle = 0;
-                gameInput->platformControllers[i]->sdlID = -1;
+            PlatformController *platformController =
+                (PlatformController *)(gameInput->platformControllers[i]);
+            if (platformController->controllerHandle) {
+                SDL_GameControllerClose(platformController->controllerHandle);
+                platformController->controllerHandle = 0;
+                platformController->sdlID = -1;
                 printf("Closed Game Controller %u.\n", i);
             }
         } else {
@@ -707,15 +733,16 @@ void platformResetControllers(GameInput *gameInput)
             printf("%s too many controllers plugged in.\n", __FUNCTION__);
             break;
         }
-        gameInput->platformControllers[controllerIndex]->controllerHandle =
-            SDL_GameControllerOpen(i);
-        SDL_Joystick* joystick = SDL_GameControllerGetJoystick(
-            gameInput->platformControllers[controllerIndex]->controllerHandle);
-        gameInput->platformControllers[controllerIndex]->sdlID = SDL_JoystickInstanceID(joystick);
+        PlatformController *platformController =
+            (PlatformController *)(gameInput->platformControllers[controllerIndex]);
+        platformController->controllerHandle = SDL_GameControllerOpen(i);
+        SDL_Joystick* joystick =
+            SDL_GameControllerGetJoystick(platformController->controllerHandle);
+        platformController->sdlID = SDL_JoystickInstanceID(joystick);
 
         // gameInput->platformControllers[controllerIndex]->sdlID = 
         printf("Opened Game Controller %u to controllerIndex %u with sdlID %i.\n",
-               i, controllerIndex, gameInput->platformControllers[controllerIndex]->sdlID);
+               i, controllerIndex, platformController->sdlID                      );
         controllerIndex++;
     }
 }
@@ -743,10 +770,12 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
                     case SDL_WINDOWEVENT_RESIZED: {
                         // printf("SDL_WINDOWEVENT_RESIZED (%d, %d)\n",
                         //        event->window.data1, event->window.data2);
-                        platformGetWindowSize(gameBuffer->memory,
+                        platformGetWindowSize((PlatformWindow *)(gameBuffer->memory),
                                               &gameBuffer->backBuffer.width,
-                                              &gameBuffer->backBuffer.height);
-                        platformResizeTexture(gameBuffer, &gameBuffer->backBuffer);
+                                              &gameBuffer->backBuffer.height       );
+                        platformResizeTexture((PlatformWindow *)(gameBuffer->memory),
+                                              (PlatformTexture *)(gameBuffer->backBuffer.memory),
+                                              &gameBuffer->backBuffer                            );
                     } break;
                     case SDL_WINDOWEVENT_EXPOSED: {
                     } break;
@@ -816,11 +845,14 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
     }
 }
 
-void platformUpdateWindow(GameBuffer *gameBuffer, GameTexture *gameTexture) {
-    SDL_UpdateTexture(gameTexture->memory->textureHandle, 0, gameTexture->textureMemory,
-                      gameTexture->width * gameTexture->bytesPerPixel                   );
-    SDL_RenderCopy(gameBuffer->memory->renderer, gameTexture->memory->textureHandle, 0, 0);
-    SDL_RenderPresent(gameBuffer->memory->renderer);
+void platformUpdateWindow(PlatformWindow *platformWindow, PlatformTexture *platformTexture,
+                          int width, int height, uint32_t bytesPerPixel, void *textureMemory)
+//    GameBuffer *gameBuffer, GameTexture *gameTexture) {
+{
+
+    SDL_UpdateTexture(platformTexture->textureHandle, 0, textureMemory, width * bytesPerPixel);
+    SDL_RenderCopy(platformWindow->renderer, platformTexture->textureHandle, 0, 0);
+    SDL_RenderPresent(platformWindow->renderer);
 }
 
 int main(int argc, char **argv)
@@ -851,18 +883,18 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    assert(gameMemory.initialized);
+    xbAssert(gameMemory.initialized);
 
     printf("size of gameMemory.permanentMemSize: %lu\n", gameMemory.permanentMemSize);
     printf("size of gameMemory.transientMemSize: %lu\n", gameMemory.transientMemSize);
+    printf("size of gameState: %lu (includes subsequent)\n", sizeof(GameState));
     printf("size of gameGlobal: %lu\n", sizeof(GameGlobal));
-    printf("size of gameState: %lu\n", sizeof(GameState));
     printf("size of gameInput: %lu\n", sizeof(GameInput));
     printf("size of gameClocks: %lu\n", sizeof(GameClocks));
     printf("size of gameBuffer: %lu\n", sizeof(GameBuffer));
     printf("size of gameSound: %lu\n", sizeof(GameSound));
 
-    assert(sizeof(GameState) <= gameMemory.permanentMemSize);
+    xbAssert(sizeof(GameState) <= gameMemory.permanentMemSize);
 
     GameState  *gameState  = (GameState *)gameMemory.permanentMem;
     GameGlobal *gameGlobal = &gameState->gameGlobal;
@@ -871,20 +903,17 @@ int main(int argc, char **argv)
     GameBuffer *gameBuffer = &gameState->gameBuffer;
     GameSound  *gameSound  = &gameState->gameSound;
 
-    assert(   &gameInput->terminatorMouse - &gameInput->mButtons[0]
-           == sizeof(gameInput->mButtons)/sizeof(gameInput->mButtons[0]));
-    assert(   &gameInput->terminatorKeys - &gameInput->keys[0]
-           == sizeof(gameInput->keys)/sizeof(gameInput->keys[0]));
-    assert(   &gameInput->controller[0].terminatorContr - &gameInput->controller[0].buttons[0]
-           == sizeof(gameInput->controller[0].buttons)/sizeof(gameInput->controller[0].buttons[0]));
-
-    gameClocks->timeStart   = std::chrono::duration_cast<std::chrono::milliseconds>
-        (std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-    gameClocks->cyclesStart = __rdtsc();
+    xbAssert(   &gameInput->terminatorMouse - &gameInput->mButtons[0]
+             == sizeof(gameInput->mButtons)/sizeof(gameInput->mButtons[0]));
+    xbAssert(   &gameInput->terminatorKeys - &gameInput->keys[0]
+             == sizeof(gameInput->keys)/sizeof(gameInput->keys[0]));
+    xbAssert(   &gameInput->controller[0].terminatorContr - &gameInput->controller[0].buttons[0]
+             == sizeof(gameInput->controller[0].buttons)/sizeof(gameInput->controller[0].buttons[0]));
 
     platformInit();
     gameBuffer->memory = platformOpenWindow((char *)WINDOW_TITLE,
                                             WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT    );
+    platformInitClocks(gameClocks);
     uint32_t targetAudioFrameLatency = 4;
     platformOpenSoundDevice(targetAudioFrameLatency, gameSound);
     platformInitializeControllers(gameInput);
@@ -892,31 +921,40 @@ int main(int argc, char **argv)
     gameBuffer->backBuffer.width         = 1024;
     gameBuffer->backBuffer.height        = 1024;
     gameBuffer->backBuffer.bytesPerPixel = 4;
-    gameBuffer->backBuffer.memory        = (PlatformTexture *)malloc(sizeof(PlatformTexture));
-    gameBuffer->backBuffer.memory->textureHandle = 0;
-    platformGetWindowSize(gameBuffer->memory, &gameBuffer->backBuffer.width,
-                                              &gameBuffer->backBuffer.height);
-    platformResizeTexture(gameBuffer, &gameBuffer->backBuffer);
+    PlatformTexture *platformTexture = (PlatformTexture *)malloc(sizeof(PlatformTexture));
+    platformTexture->textureHandle = 0;
+    gameBuffer->backBuffer.memory = platformTexture;
+    platformGetWindowSize((PlatformWindow *)(gameBuffer->memory),
+                          &gameBuffer->backBuffer.width, &gameBuffer->backBuffer.height);
+    platformResizeTexture((PlatformWindow *)(gameBuffer->memory),
+                          (PlatformTexture *)(gameBuffer->backBuffer.memory),
+                          &gameBuffer->backBuffer                            );
 
     //audio test
     gameGlobal->toneHz = 256;
     gameGlobal->toneVolume = 500;
-    gameGlobal->squareWavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
-    gameGlobal->halfSquareWavePeriod = gameGlobal->squareWavePeriod / 2;
+    gameGlobal->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
+    gameGlobal->halfWavePeriod = gameGlobal->wavePeriod / 2;
 
     // MAIN LOOP
     while (!gameGlobal->quitGame) {
         platformHandleEvents(gameBuffer, gameInput, gameGlobal);
 
         if (gameGlobal->stopRendering) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(MINIMIZED_SLEEP_TIME));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(MINIMIZED_SLEEP_TIME));
+            //TODO[ALEX]: use SDL_Delay
             continue;
         }
 
         gameUpdate(gameState, &gameMemory);
-        platformQueueAudio(gameSound);
+        platformQueueAudio(gameSound, gameSound->audioToQueue, gameSound->audioToQueueBytes);
+        platformGetClocks(gameClocks);
 
-        platformUpdateWindow(gameBuffer, &gameBuffer->backBuffer);
+        platformUpdateWindow((PlatformWindow *)(gameBuffer->memory),
+                             (PlatformTexture *)(gameBuffer->backBuffer.memory),
+                             gameBuffer->backBuffer.width, gameBuffer->backBuffer.height,
+                             gameBuffer->backBuffer.bytesPerPixel,
+                             gameBuffer->backBuffer.textureMemory                        );
     }
 
     // CLEANUP

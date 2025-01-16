@@ -10,12 +10,14 @@ SDLlibraryDir = $(libDir)/SDL/lib
 LDFLAGS = -L$(SDLlibraryDir) -Wl,-rpath,$(SDLlibraryDir) -Wl,--enable-new-dtags
 LDLIBS = -lSDL2
 
+DEFINES = -DXB_SLOW=1
+
 INCLUDES = -I$(SDLincludeDir)
 
 SDLCXXFLAGS = -D_REENTRANT
-CXXFLAGS = -Wall -g $(INCLUDES) $(SDLCXXFLAGS)
+CXXFLAGS = -Wall -g $(DEFINES) $(INCLUDES) $(SDLCXXFLAGS)
 
-dependencies = xbEngine.h constants.h
+dependencies = sdl_xbEngine.h xbEngine.h constants.h
 
 objectFiles = sdl_xbEngine.o xbEngine.o
 objects = $(patsubst %,$(objectDir)/%,$(objectFiles))

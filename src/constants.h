@@ -1,12 +1,26 @@
 #ifndef CONSTANTS_H // include guard begin
 #define CONSTANTS_H // include guard
 
+// MATH
+#define Kilobytes(value) (((uint64_t)value) * 1024LL)
+#define Megabytes(value) (((uint64_t)value) * 1024LL * 1024LL)
+#define Gigabytes(value) (((uint64_t)value) * 1024LL * 1024LL * 1024LL)
+#define PI32 3.14159265358979f
+
+// ASSERTIONS (XB_SLOW to be defined when compiling
+#if XB_SLOW
+#define xbAssert(expression) if(!(expression)) { *(int *)0 = 0; }
+#else
+#define xbAssert(expression)
+#endif
+
 // DEBUG
 // #define INPUT_TEST
 #define INPUT_TEST_MOUSE
 #define INPUT_TEST_AXES
 #define INPUT_TEST_PRESSES
 #define INPUT_TEST_DOWNS
+// #define SQUARE_WAVE_TEST
 
 // WINDOW
 #define WINDOW_TITLE "xbEngine_Window_Title"
