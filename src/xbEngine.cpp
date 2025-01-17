@@ -90,17 +90,17 @@ void inputTestDEBUG(GameInput *gameInput)
 void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
                       GameBuffer *gameBuffer, GameClocks *gameClocks)
 {
-    float scrollSpeed = 1.0f * gameClocks->msPerFrame; //NOTE[ALEX]: when the fps are too high this breaks
+    uint32_t scrollSpeed = 8; //NOTE[ALEX]: framerate dependent
     gameGlobal->offsetX += 
         (int16_t)(scrollSpeed *   (float)gameInput->controller[0].leftStickX
                                 / (float)CONTR_AXIS_NORMALIZATION           );
     gameGlobal->offsetY +=
         (int16_t)(scrollSpeed *   (float)gameInput->controller[0].leftStickY
                                 / (float)CONTR_AXIS_NORMALIZATION           );
-    if (gameInput->s.isDown) { gameGlobal->offsetX -= 8; }
-    if (gameInput->f.isDown) { gameGlobal->offsetX += 8; }
-    if (gameInput->d.isDown) { gameGlobal->offsetY -= 8; }
-    if (gameInput->e.isDown) { gameGlobal->offsetY += 8; }
+    if (gameInput->s.isDown) { gameGlobal->offsetX -= scrollSpeed; }
+    if (gameInput->f.isDown) { gameGlobal->offsetX += scrollSpeed; }
+    if (gameInput->d.isDown) { gameGlobal->offsetY -= scrollSpeed; }
+    if (gameInput->e.isDown) { gameGlobal->offsetY += scrollSpeed; }
     
     uint32_t pitch = gameBuffer->backBuffer.width * gameBuffer->backBuffer.bytesPerPixel;
     uint8_t  *row  = (uint8_t *)gameBuffer->backBuffer.textureMemory;
@@ -188,6 +188,13 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory)
                      &gameState->gameBuffer, &gameState->gameClocks);
 
     audioTestDEBUG(&gameState->gameInput, &gameState->gameGlobal, &gameState->gameSound);
+
+    int n = 0;
+    // for (int i = 0; i < 1000; i++) {
+    //     for (int j = 0; j < 5000; j++) {
+    //         n = i*j;
+    //     }
+    // }
 
     gameState->gameGlobal.gameFrame++;
 }

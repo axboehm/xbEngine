@@ -39,20 +39,59 @@ void platformInitClocks(GameClocks *gameClocks)
     platformGetClocks(gameClocks);
 }
 
+uint64_t platformGetPerformanceCounter()
+{
+    return SDL_GetPerformanceCounter();
+}
+
 void platformGetClocks(GameClocks *gameClocks)
 {
-    gameClocks->endPerfCounter     = SDL_GetPerformanceCounter();
+    gameClocks->endPerfCounter     = platformGetPerformanceCounter();
     gameClocks->elapsedPerfCounter = gameClocks->endPerfCounter - gameClocks->lastPerfCounter;
-    gameClocks->lastPerfCounter = gameClocks->endPerfCounter;
+    gameClocks->lastPerfCounter    = gameClocks->endPerfCounter;
 
-    gameClocks->msPerFrame =   (1000.0f * (float)gameClocks->elapsedPerfCounter)
-                             / (float)(gameClocks->perfCountFrequency);
-    gameClocks->framesPerSecond =   (float)(gameClocks->perfCountFrequency)
-                                  / (float)(gameClocks->elapsedPerfCounter);
+    gameClocks->msLastFrame =   (float)(gameClocks->elapsedPerfCounter)
+                              / (float)(gameClocks->perfCountFrequency);
+    // printf("Final: %0.4fms/f, %0.2ff/s   |   CPU only: %0.4fms/f, %0.2ff/s\n",
+    //        gameClocks->msLastFrame, 1.0f/gameClocks->msLastFrame,
+    //        gameClocks->msLastFrameCPU, 1.0f/gameClocks->msLastFrameCPU        );
 
     gameClocks->endCycleCount     = __rdtsc();
     gameClocks->elapsedCycleCount = gameClocks->endCycleCount - gameClocks->lastCycleCount;
     gameClocks->lastCycleCount    = gameClocks->endCycleCount;
+}
+
+void platformGetElapsedCPU(GameClocks *gameClocks)
+{
+    uint64_t elapsed = platformGetPerformanceCounter() - gameClocks->lastPerfCounter;
+    gameClocks->msLastFrameCPU = (float)elapsed / (float)(gameClocks->perfCountFrequency);
+}
+
+float platformGetSecondsElapsed(uint64_t lastCounter, uint64_t thisCounter,
+                                uint64_t perfCountFrequency                )
+{
+    return ((float)(thisCounter - lastCounter) / (float)perfCountFrequency);
+}
+
+uint32_t platformGetRefreshRate(PlatformWindow *platformWindow)
+{
+    uint32_t result = 0;
+    SDL_DisplayMode displayMode;
+    int displayIndex = SDL_GetWindowDisplayIndex(platformWindow->window);
+    if (SDL_GetDesktopDisplayMode(displayIndex, &displayMode) == 0) {
+        result = (uint32_t)displayMode.refresh_rate;
+    }
+    printf("%s displayIndex: %i, refresh rate: %u\n", __FUNCTION__, displayIndex, result);
+    return result;
+}
+
+void platformWait(uint32_t waitTimeMilliSeconds)
+{
+    uint32_t timeToSleep = waitTimeMilliSeconds - 1; //NOTE[ALEX]: occasionally, the wait call is
+                                                     //            not granular enough,
+                                                     //            so add some slack here
+    // printf("%s sleeping %ums\n", __FUNCTION__, timeToSleep);
+    SDL_Delay(timeToSleep);
 }
 
 PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint32_t createHeight)
@@ -185,23 +224,30 @@ void platformQueueAudio(GameSound *gameSound, int16_t *audioToQueue, uint32_t au
     // printf("%s, %u\n", __FUNCTION__, gameSound->queuedBytes);
 }
 
+inline uint32_t safeTruncateUInt64(uint64_t value)
+{
+    xbAssert(value <= 0xFFFFFFFF);
+    return (uint32_t)value;
+}
+
 FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName)
 {
     FileReadResultDEBUG fileReadResult = {};
+    fileReadResult.contents    = 0;
+    fileReadResult.contentSize = 0;
 
     SDL_RWops *file = SDL_RWFromFile(fileName, "rb"); // open a file in binary read-only mode
 
-    if (file != NULL) {
-        uint64_t fileSize = file->size(file);
+    if (file != 0) {
+        uint32_t fileSize = safeTruncateUInt64(file->size(file));
         if (fileSize > 0) {
             fileReadResult.contents = (void *)malloc(fileSize);
             if (fileReadResult.contents) {
                 if (SDL_RWread(file, fileReadResult.contents, fileSize, 1)) {
                     fileReadResult.contentSize = fileSize;
-                    printf("%s read successful, bytes read: %lu\n", __FUNCTION__, fileSize);
+                    printf("%s read successful, bytes read: %u\n", __FUNCTION__, fileSize);
                 } else {
                     platformFreeFileMemoryDEBUG(fileReadResult.contents);
-                    fileReadResult.contentSize = 0;
                     printf("%s read failed\n", __FUNCTION__);
                 }
             } else {
@@ -228,7 +274,7 @@ void platformFreeFileMemoryDEBUG(void *memory)
     }
 }
 
-int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memorySize)
+int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint32_t memorySize)
 {
     int32_t result = 0;
 
@@ -236,10 +282,10 @@ int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memo
     
     if (file != NULL) {
         if (SDL_RWwrite(file, memory, memorySize, 1)) { // returns number of objects written (here 1)
-            uint64_t fileSize = file->size(file);
+            uint32_t fileSize = file->size(file);
             result = (int32_t)(fileSize == memorySize);
-            printf("%s write successful, bytes given: %lu, bytes written: %lu\n",
-                         __FUNCTION__, memorySize, fileSize                      );
+            printf("%s write successful, bytes given: %u, bytes written: %u\n",
+                   __FUNCTION__, memorySize, fileSize                          );
         } else {
             result = 0;
             printf("%s write failed\n", __FUNCTION__);
@@ -535,6 +581,7 @@ struct PlatformController {
 int32_t SDL2FindControllerID(GameInput *gameInput, SDL_JoystickID joystickID)
 {
     for (int32_t i = 0; i < MAX_CONTROLLERS; i++) {
+        if (!gameInput->controllerConnected[i]) { continue; }
         PlatformController *platformController =
             (PlatformController *)(gameInput->platformControllers[i]);
         if (joystickID == platformController->sdlID) {
@@ -710,6 +757,7 @@ void platformCloseControllers(GameInput *gameInput)
 void platformResetControllers(GameInput *gameInput)
 {
     for (uint32_t i = 0; i < MAX_CONTROLLERS; i++) { // close all existing controllers
+        gameInput->controllerConnected[i] = 0;
         if (gameInput->platformControllers[i]) {
             PlatformController *platformController =
                 (PlatformController *)(gameInput->platformControllers[i]);
@@ -733,6 +781,7 @@ void platformResetControllers(GameInput *gameInput)
             printf("%s too many controllers plugged in.\n", __FUNCTION__);
             break;
         }
+        gameInput->controllerConnected[i] = 1;
         PlatformController *platformController =
             (PlatformController *)(gameInput->platformControllers[controllerIndex]);
         platformController->controllerHandle = SDL_GameControllerOpen(i);
@@ -865,17 +914,8 @@ int main(int argc, char **argv)
     gameMemory.transientMem     = (uint64_t *)malloc(gameMemory.transientMemSize);
     // all memory is pre initialized to 0
     if (gameMemory.transientMem && gameMemory.permanentMem) {
-#if 0
-        for (uint64_t i = 0; i < gameMemory.transientMemSize/sizeof(uint64_t); i++) {
-            gameMemory.transientMem[i] = 0;
-        }
-        for (uint64_t i = 0; i < gameMemory.permanentMemSize/sizeof(uint64_t); i++) {
-            gameMemory.permanentMem[i] = 0;
-        }
-#else
         memset(gameMemory.permanentMem, 0, gameMemory.permanentMemSize);
         memset(gameMemory.transientMem, 0, gameMemory.transientMemSize);
-#endif
         gameMemory.initialized =  1;
     } else {
         printf("Could not allocated gameMemory: transient: %lu, permanent: %lu\n",
@@ -914,6 +954,13 @@ int main(int argc, char **argv)
     gameBuffer->memory = platformOpenWindow((char *)WINDOW_TITLE,
                                             WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT    );
     platformInitClocks(gameClocks);
+    gameGlobal->monitorRefreshRate = platformGetRefreshRate((PlatformWindow *)(gameBuffer->memory));
+    if (gameGlobal->monitorRefreshRate == 0) { //NOTE[ALEX]: temporary
+        gameGlobal->renderingRefreshRate = 60;
+    } else {
+        gameGlobal->renderingRefreshRate = gameGlobal->monitorRefreshRate;
+    }
+    gameGlobal->targetTimePerFrame = 1000.0f / (float)(gameGlobal->renderingRefreshRate);
     uint32_t targetAudioFrameLatency = 4;
     platformOpenSoundDevice(targetAudioFrameLatency, gameSound);
     platformInitializeControllers(gameInput);
@@ -948,13 +995,30 @@ int main(int argc, char **argv)
 
         gameUpdate(gameState, &gameMemory);
         platformQueueAudio(gameSound, gameSound->audioToQueue, gameSound->audioToQueueBytes);
-        platformGetClocks(gameClocks);
 
         platformUpdateWindow((PlatformWindow *)(gameBuffer->memory),
                              (PlatformTexture *)(gameBuffer->backBuffer.memory),
                              gameBuffer->backBuffer.width, gameBuffer->backBuffer.height,
                              gameBuffer->backBuffer.bytesPerPixel,
                              gameBuffer->backBuffer.textureMemory                        );
+
+        platformGetElapsedCPU(gameClocks);
+
+        float mSecondsElapsed = 1000.0f* platformGetSecondsElapsed(gameClocks->lastPerfCounter,
+                                                          platformGetPerformanceCounter(),
+                                                          gameClocks->perfCountFrequency  );
+        int32_t timeToSleep = (gameGlobal->targetTimePerFrame - mSecondsElapsed);
+        if (timeToSleep > 0) {
+            platformWait(timeToSleep);
+            //NOTE[ALEX]: to bridge the "gap" introduced by the lower granularity of the wait call,
+            //            stay in the following while loop until the target frame time is reached
+            while (1000.0f * platformGetSecondsElapsed(gameClocks->lastPerfCounter,
+                                                       platformGetPerformanceCounter(),
+                                                       gameClocks->perfCountFrequency  )
+                   < gameGlobal->targetTimePerFrame                                     ) { }
+        }
+
+        platformGetClocks(gameClocks);
     }
 
     // CLEANUP

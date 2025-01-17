@@ -25,7 +25,10 @@ struct GameTexture {
 struct GameGlobal {
     int32_t  quitGame;
     int32_t  stopRendering;
-    uint64_t gameFrame;
+    uint32_t monitorRefreshRate;   // refresh rate that the monitor supports (0 if unknown)
+    uint32_t renderingRefreshRate; // refresh rate used to render (can be set manually)
+    float    targetTimePerFrame;   // in ms
+    uint64_t gameFrame; // counts frames
 
     //TODO[ALEX]: testing!
     // gradient
@@ -90,6 +93,7 @@ struct ControllerInput {
 
 struct GameInput {
     void            *platformControllers[MAX_CONTROLLERS]; // PlatformController
+    uint8_t          controllerConnected[MAX_CONTROLLERS];
     ControllerInput  controller[MAX_CONTROLLERS];
 
     uint32_t mousePosX;
@@ -230,11 +234,14 @@ struct GameInput {
 
 struct GameClocks {
     uint64_t perfCountFrequency;
+
     uint64_t lastPerfCounter;
     uint64_t endPerfCounter;
     uint64_t elapsedPerfCounter;
-    float    msPerFrame;
-    float    framesPerSecond;
+
+    float msLastFrame;
+    float msLastFrameCPU; // without main loop waiting
+
     uint64_t lastCycleCount;
     uint64_t endCycleCount;
     uint64_t elapsedCycleCount;

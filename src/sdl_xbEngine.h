@@ -20,6 +20,13 @@ void platformInit();
 
 void platformInitClocks(GameClocks *gameClocks);
 void platformGetClocks(GameClocks *gameClocks);
+uint64_t platformGetPerformanceCounter();
+float platformGetSecondsElapsed(uint64_t lastCounter, uint64_t thisCounter,
+                                uint64_t perfCountFrequency                );
+
+uint32_t platformGetRefreshRate(PlatformWindow *platformWindow);
+
+void platformWait(uint32_t waitTimeMilliSeconds);
 
 PlatformWindow *platformOpenWindow(char *windowTitle,
                                    uint32_t createWidth, uint32_t createHeight);
@@ -40,7 +47,7 @@ void platformCloseControllers(GameInput *gameInput);
 
 FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
 void platformFreeFileMemoryDEBUG(void *memory);
-int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint64_t memorySize);
+int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint32_t memorySize);
 
 void platformHandleEvents(GameInput *gameInput, GameGlobal *gameGlobal);
 

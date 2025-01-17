@@ -29,6 +29,7 @@
 // CONTROLLERS
 #define MAX_CONTROLLERS 4
 //NOTE[ALEX]: deadzones are hardcoded for now, this should become part of the settings later
+//            players should also be able to calibrate this manually
 // max 65536/2 (int16)
 #define CONTR_AXIS_DEADZONE_INNER 2000
 #define CONTR_AXIS_DEADZONE_OUTER 30000
