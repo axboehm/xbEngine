@@ -122,6 +122,7 @@ void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
 
 void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal, GameSound *gameSound)
 {
+    //TODO[ALEX]: this is not working right now
 #if 0
     gameGlobal->toneHz = 256 +
         (uint32_t)(512.0f*(  (float)gameInput->controller[0].leftTrigger
@@ -190,11 +191,12 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory)
     audioTestDEBUG(&gameState->gameInput, &gameState->gameGlobal, &gameState->gameSound);
 
     int n = 0;
-    // for (int i = 0; i < 1000; i++) {
-    //     for (int j = 0; j < 5000; j++) {
-    //         n = i*j;
-    //     }
-    // }
+    for (int i = 0; i < 1000; i++) {
+        for (int j = 0; j < 5000; j++) {
+            n = i*j;
+        }
+    }
+    printf("%i\n", n);
 
     gameState->gameGlobal.gameFrame++;
 }

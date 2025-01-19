@@ -6,11 +6,9 @@
 #include <SDL_audio.h>
 #include <SDL_events.h>
 #include <SDL_gamecontroller.h>
-// #include <cassert> // for assert macro - use xbAssert from constants.h
+// #include <cassert> // for assert macro - use xbAssert from constants.h instead
 #include <cstdio> // for printf
 #include <cstring> // for memset
-// #include <thread> // for multithreading and sleeping the thread
-// #include <chrono> // for sleep
 #include <immintrin.h> // for __rdtsc (should work on all x86 compilers)
 
 //NOTE[ALEX]: platform dependent code should stay in this file,
@@ -720,8 +718,6 @@ void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, GameInput *gameInput,
     }
 }
 
-//TODO[ALEX]: replugging moves index up
-
 void platformInitializeControllers(GameInput *gameInput)
 {
     for (uint32_t i = 0; i < MAX_CONTROLLERS; i++) {
@@ -988,8 +984,8 @@ int main(int argc, char **argv)
         platformHandleEvents(gameBuffer, gameInput, gameGlobal);
 
         if (gameGlobal->stopRendering) {
-            //std::this_thread::sleep_for(std::chrono::milliseconds(MINIMIZED_SLEEP_TIME));
-            //TODO[ALEX]: use SDL_Delay
+            //TODO[ALEX]: test this!
+            platformWait(MINIMIZED_SLEEP_TIME);
             continue;
         }
 
@@ -1007,7 +1003,7 @@ int main(int argc, char **argv)
         float mSecondsElapsed = 1000.0f* platformGetSecondsElapsed(gameClocks->lastPerfCounter,
                                                           platformGetPerformanceCounter(),
                                                           gameClocks->perfCountFrequency  );
-        int32_t timeToSleep = (gameGlobal->targetTimePerFrame - mSecondsElapsed);
+        int32_t timeToSleep = gameGlobal->targetTimePerFrame - mSecondsElapsed;
         if (timeToSleep > 0) {
             platformWait(timeToSleep);
             //NOTE[ALEX]: to bridge the "gap" introduced by the lower granularity of the wait call,

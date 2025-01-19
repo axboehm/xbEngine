@@ -24,7 +24,11 @@ objectFiles = sdl_xbEngine.o xbEngine.o
 objects = $(patsubst %,$(objectDir)/%,$(objectFiles))
 
 $(objectDir)/%.o : %.cpp $(dependencies)
+	@mkdir -p $(objectDir)
 	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 pman : $(objects)
 	$(CXX) -o $(executableDir)/$@ $^ $(CXXFLAGS) $(LDLIBS) $(LDFLAGS)
+
+clean :
+	rm $(objectDir)/*.o $(executableDir)/pman

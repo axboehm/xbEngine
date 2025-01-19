@@ -264,8 +264,7 @@ struct GameSound {
 
 struct GameState {
     GameGlobal gameGlobal;
-    GameInput  gameInput; //TODO[ALEX]: multiple of these?
-                          // - how to make my life easier for potential multiplayer
+    GameInput  gameInput;
     GameClocks gameClocks;
     GameBuffer gameBuffer;
     GameSound  gameSound;
