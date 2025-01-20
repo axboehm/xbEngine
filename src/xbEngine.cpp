@@ -119,18 +119,11 @@ void textureTestDEBUG(GameInput *gameInput, GameTest *gameTest,
 }
 
 void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
-                    GameSound *gameSound, GameClocks *gameClocks)
+                    GameSound *gameSound, GameClocks *gameClocks, GameBuffer *gameBuffer)
 {
-    //TODO[ALEX]: this is not working right now
-#if 0
-    gameGlobal->toneHz = 256 +
-        (uint32_t)(512.0f*(  (float)gameInput->controller[0].leftTrigger
-                           / (float)CONTR_AXIS_NORMALIZATION            ));
-#else
-    gameTest->toneHz += 8 * gameInput->mouseScrV;
-    if (gameTest->toneHz < 64)  { gameTest->toneHz = 64; }
-    if (gameTest->toneHz > 512) { gameTest->toneHz = 512; }
-#endif
+    float toneHz = 64.0f + 512.0f * (((float)gameInput->mousePosY) / ((float)gameBuffer->height));
+    gameTest->toneHz = (uint32_t)toneHz;
+
     gameTest->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameTest->toneHz;
     gameTest->halfWavePeriod = gameTest->wavePeriod / 2;
 
@@ -147,19 +140,14 @@ void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
 
         for (uint32_t i = 0; i < sampleCount; i++) {
             int16_t sampleValue = gameTest->toneVolume;
-#ifdef SQUARE_WAVE_TEST
-            if ((gameTest->runningSampleIndex / gameTest->halfWavePeriod) % 2 == 0) {
-                sampleValue *= -1;
-            }
-#else 
-            gameTest->tWave = 2.0f*PI32 * ( (float)gameTest->runningSampleIndex
-                                           /(float)gameTest->wavePeriod        );
+
+            gameTest->tWave += 2.0f*PI32 *(1.0f / (float)gameTest->wavePeriod);
             if (gameTest->tWave > 2.0f*PI32) {
                 gameTest->tWave -= 2.0f*PI32;
             }
             float sineValue = sinf(gameTest->tWave);
             sampleValue *= sineValue;
-#endif
+
             gameTest->runningSampleIndex++;
             for (uint32_t j = 0; j < AUDIO_CHANNELS; j++) {
                 *sampleOut = sampleValue;
@@ -174,20 +162,43 @@ void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
     //        gameSound->audioToQueueBytes, gameClocks->msLastFrame                        );
 }
 
+void drawRectangle(int startX, int startY, int endX, int endY,
+                   GameBuffer *gameBuffer, uint32_t color       )
+{
+    if (startX < 0) { startX = 0; }
+    if (startY < 0) { startY = 0; }
+    if (endX > gameBuffer->width)  { endX = gameBuffer->width; }
+    if (endY > gameBuffer->height) { endY = gameBuffer->height; }
+    for (int i = startX; i < endX; i++) {
+        for (int j = startY; j < endY; j++) {
+            uint32_t *pixel = (uint32_t *)gameBuffer->textureMemory + i + j*gameBuffer->width;
+            *pixel = color;
+        }
+    }
+}
+
 void gameUpdate(GameState *gameState, GameTest *gameTest)
 {
+    GameInput  *gameInput  = &gameState->gameInput;
+    GameClocks *gameClocks = &gameState->gameClocks;
+    GameBuffer *gameBuffer = &gameState->gameBuffer;
+    GameSound  *gameSound  = &gameState->gameSound;
+
     if (gameState->gameInput.esc.isDown) {
         gameState->gameGlobal.quitGame = true;
         return;
     }
 
-    inputTestDEBUG(&gameState->gameInput);
+    inputTestDEBUG(gameInput);
 
-    textureTestDEBUG(&gameState->gameInput, gameTest,
-                     &gameState->gameBuffer, &gameState->gameClocks);
+    textureTestDEBUG(gameInput, gameTest, gameBuffer, gameClocks);
 
-    audioTestDEBUG(&gameState->gameInput, gameTest,
-                   &gameState->gameSound, &gameState->gameClocks);
+    int rectThickness = 10;
+    drawRectangle(gameInput->mousePosX - rectThickness, gameInput->mousePosY - rectThickness,
+                  gameInput->mousePosX + rectThickness, gameInput->mousePosY + rectThickness,
+                  gameBuffer, 0xFFFFFFFF);
+
+    audioTestDEBUG(gameInput, gameTest, gameSound, gameClocks, gameBuffer);
 
     // int n = 0;
     // for (int i = 0; i < 1000; i++) {

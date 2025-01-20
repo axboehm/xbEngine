@@ -76,10 +76,10 @@ struct GameInput {
     uint8_t          controllerConnected[MAX_CONTROLLERS];
     ControllerInput  controller[MAX_CONTROLLERS];
 
-    uint32_t mousePosX;
-    uint32_t mousePosY;
-    int32_t  mouseScrH;
-    int32_t  mouseScrV;
+    int mousePosX;
+    int mousePosY;
+    int mouseScrH;
+    int mouseScrV;
     union {
         ButtonState mButtons[5];
         struct {
@@ -271,6 +271,8 @@ struct GameTest {
 
 void gameUpdate(GameState *gameState, GameTest *gameTest);
 
+void drawRectangle(int startX, int startY, int endX, int endY,
+                   GameBuffer *gameBuffer, uint32_t color     );
 uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
 
 #endif // include guard end

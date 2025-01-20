@@ -21,7 +21,6 @@
 // #define INPUT_TEST_AXES
 // #define INPUT_TEST_PRESSES
 // #define INPUT_TEST_DOWNS
-// #define SQUARE_WAVE_TEST
 
 // WINDOW & GAMEBUFFER
 #define WINDOW_TITLE "xbEngine_Window_Title"
