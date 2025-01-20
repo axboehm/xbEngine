@@ -13,7 +13,6 @@ uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput) {
 
 void inputTestDEBUG(GameInput *gameInput)
 {
-#ifdef INPUT_TEST
     // mouse test
 #ifdef INPUT_TEST_MOUSE
     printf("Mouse pos(x, y): %u, %u, scr(h, v): %i, %i\n",
@@ -84,7 +83,6 @@ void inputTestDEBUG(GameInput *gameInput)
 #endif
         }
     }
-#endif
 }
 
 void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
@@ -102,11 +100,11 @@ void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
     if (gameInput->d.isDown) { gameGlobal->offsetY -= scrollSpeed; }
     if (gameInput->e.isDown) { gameGlobal->offsetY += scrollSpeed; }
     
-    uint32_t pitch = gameBuffer->backBuffer.width * gameBuffer->backBuffer.bytesPerPixel;
-    uint8_t  *row  = (uint8_t *)gameBuffer->backBuffer.textureMemory;
-    for (int y = 0; y < gameBuffer->backBuffer.height; y++) {
+    uint32_t pitch = gameBuffer->width * gameBuffer->bytesPerPixel;
+    uint8_t  *row  = (uint8_t *)gameBuffer->textureMemory;
+    for (int y = 0; y < gameBuffer->height; y++) {
         uint8_t *pixel = (uint8_t *)row;
-        for (int x = 0; x < gameBuffer->backBuffer.width; x++) {
+        for (int x = 0; x < gameBuffer->width; x++) {
             *pixel = (uint8_t)(x + gameGlobal->offsetX);
             pixel++;
             *pixel = (uint8_t)(y + gameGlobal->offsetY);
@@ -120,7 +118,8 @@ void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
     }
 }
 
-void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal, GameSound *gameSound)
+void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
+                    GameSound *gameSound, GameClocks *gameClocks )
 {
     //TODO[ALEX]: this is not working right now
 #if 0
@@ -135,12 +134,11 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal, GameSound *gam
     gameGlobal->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
     gameGlobal->halfWavePeriod = gameGlobal->wavePeriod / 2;
 
+    // if the framerate drops, the audio gets choppy
     gameSound->audioToQueueBytes = gameSound->targetQueuedBytes - gameSound->queuedBytes;
     if (gameSound->audioToQueueBytes > sizeof(gameSound->audioToQueue)) {
         printf("%s out of bounds of audioToQueue\n", __FUNCTION__);
     }
-    // printf("target: %u, queued: %u\n", gameSound->targetQueuedBytes,
-    //                                    gameSound->queuedBytes       );
 
     if (gameSound->audioToQueueBytes) {
         int16_t *sampleOut   = gameSound->audioToQueue;
@@ -150,7 +148,7 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal, GameSound *gam
         for (uint32_t i = 0; i < sampleCount; i++) {
             int16_t sampleValue = gameGlobal->toneVolume;
 #ifdef SQUARE_WAVE_TEST
-            if ((gameGlobal.runningSampleIndex / gameGlobal.halfWavePeriod) % 2 == 0) {
+            if ((gameGlobal->runningSampleIndex / gameGlobal->halfWavePeriod) % 2 == 0) {
                 sampleValue *= -1;
             }
 #else 
@@ -170,6 +168,10 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal, GameSound *gam
             
         }
     }
+
+    // printf("target: %u, currently queued: %u, to queue: %u, time last frame: %.04fms\n",
+    //        gameSound->targetQueuedBytes, gameSound->queuedBytes,
+    //        gameSound->audioToQueueBytes, gameClocks->msLastFrame                        );
 }
 
 void gameUpdate(GameState *gameState, GameMemory *gameMemory)
@@ -188,15 +190,16 @@ void gameUpdate(GameState *gameState, GameMemory *gameMemory)
     textureTestDEBUG(&gameState->gameInput, &gameState->gameGlobal,
                      &gameState->gameBuffer, &gameState->gameClocks);
 
-    audioTestDEBUG(&gameState->gameInput, &gameState->gameGlobal, &gameState->gameSound);
+    audioTestDEBUG(&gameState->gameInput, &gameState->gameGlobal,
+                   &gameState->gameSound, &gameState->gameClocks );
 
-    int n = 0;
-    for (int i = 0; i < 1000; i++) {
-        for (int j = 0; j < 5000; j++) {
-            n = i*j;
-        }
-    }
-    printf("%i\n", n);
+    // int n = 0;
+    // for (int i = 0; i < 1000; i++) {
+    //     for (int j = 0; j < 5000; j++) {
+    //         n = i*j;
+    //     }
+    // }
+    // printf("%i\n", n);
 
     gameState->gameGlobal.gameFrame++;
 }

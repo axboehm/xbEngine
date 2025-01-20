@@ -32,12 +32,14 @@ PlatformWindow *platformOpenWindow(char *windowTitle,
                                    uint32_t createWidth, uint32_t createHeight);
 void platformCloseWindow(PlatformWindow *platformWindow);
 void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
-void platformCloseBuffer(GameBuffer *gameBuffer);
+void platformOpenBackBuffer(GameBuffer *gameBuffer);
+void platformCloseBackBuffer(GameBuffer *gameBuffer);
 
 void platformResizeTexture(PlatformWindow *platformWindow, PlatformTexture *platformTexture,
-                           GameTexture *gameTexture                                         );
+                           int width, int height                                            );
 
-void platformOpenSoundDevice(float targetLatency, GameSound *gameSound);
+void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, uint32_t targetRefreshRate,
+                             GameSound *gameSound                                         );
 void platformCloseSoundDevice();
 void platformQueueAudio(GameSound *gameSound);
 

@@ -13,15 +13,6 @@ struct GameMemory {
     uint64_t *transientMem;
 };
 
-struct GameTexture {
-    int       width;
-    int       height;
-    uint32_t  bytesPerPixel;
-    void     *memory; // PlatformTexture
-    void     *textureMemory; //NOTE[ALEX]: currently the texture memory is not
-                             //            part of the allocated memory but separate from it
-};
-
 struct GameGlobal {
     int32_t  quitGame;
     int32_t  stopRendering;
@@ -92,7 +83,7 @@ struct ControllerInput {
 };
 
 struct GameInput {
-    void            *platformControllers[MAX_CONTROLLERS]; // PlatformController
+    void            *platformController[MAX_CONTROLLERS];
     uint8_t          controllerConnected[MAX_CONTROLLERS];
     ControllerInput  controller[MAX_CONTROLLERS];
 
@@ -248,10 +239,12 @@ struct GameClocks {
 };
 
 struct GameBuffer {
-    void        *memory; // PlatformWindow
-    GameTexture  backBuffer;
-    uint32_t     width;
-    uint32_t     height;
+    void           *platformWindow;
+    int       width;
+    int       height;
+    uint32_t  bytesPerPixel;
+    void     *platformTexture;
+    uint8_t   textureMemory[GAMEBUFFER_BYTES_PER_PIXEL*WINDOW_MAX_WIDTH*WINDOW_MAX_HEIGHT];
 };
 
 struct GameSound {
