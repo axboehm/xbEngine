@@ -85,29 +85,29 @@ void inputTestDEBUG(GameInput *gameInput)
     }
 }
 
-void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
+void textureTestDEBUG(GameInput *gameInput, GameTest *gameTest,
                       GameBuffer *gameBuffer, GameClocks *gameClocks)
 {
     uint32_t scrollSpeed = 8; //NOTE[ALEX]: framerate dependent
-    gameGlobal->offsetX += 
+    gameTest->offsetX += 
         (int16_t)(scrollSpeed *   (float)gameInput->controller[0].leftStickX
                                 / (float)CONTR_AXIS_NORMALIZATION           );
-    gameGlobal->offsetY +=
+    gameTest->offsetY +=
         (int16_t)(scrollSpeed *   (float)gameInput->controller[0].leftStickY
                                 / (float)CONTR_AXIS_NORMALIZATION           );
-    if (gameInput->s.isDown) { gameGlobal->offsetX -= scrollSpeed; }
-    if (gameInput->f.isDown) { gameGlobal->offsetX += scrollSpeed; }
-    if (gameInput->d.isDown) { gameGlobal->offsetY -= scrollSpeed; }
-    if (gameInput->e.isDown) { gameGlobal->offsetY += scrollSpeed; }
+    if (gameInput->s.isDown) { gameTest->offsetX -= scrollSpeed; }
+    if (gameInput->f.isDown) { gameTest->offsetX += scrollSpeed; }
+    if (gameInput->d.isDown) { gameTest->offsetY -= scrollSpeed; }
+    if (gameInput->e.isDown) { gameTest->offsetY += scrollSpeed; }
     
     uint32_t pitch = gameBuffer->width * gameBuffer->bytesPerPixel;
     uint8_t  *row  = (uint8_t *)gameBuffer->textureMemory;
     for (int y = 0; y < gameBuffer->height; y++) {
         uint8_t *pixel = (uint8_t *)row;
         for (int x = 0; x < gameBuffer->width; x++) {
-            *pixel = (uint8_t)(x + gameGlobal->offsetX);
+            *pixel = (uint8_t)(x + gameTest->offsetX);
             pixel++;
-            *pixel = (uint8_t)(y + gameGlobal->offsetY);
+            *pixel = (uint8_t)(y + gameTest->offsetY);
             pixel++;
             *pixel = 0;
             pixel++;
@@ -118,8 +118,8 @@ void textureTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
     }
 }
 
-void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
-                    GameSound *gameSound, GameClocks *gameClocks )
+void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
+                    GameSound *gameSound, GameClocks *gameClocks)
 {
     //TODO[ALEX]: this is not working right now
 #if 0
@@ -127,12 +127,12 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
         (uint32_t)(512.0f*(  (float)gameInput->controller[0].leftTrigger
                            / (float)CONTR_AXIS_NORMALIZATION            ));
 #else
-    gameGlobal->toneHz += 8 * gameInput->mouseScrV;
-    if (gameGlobal->toneHz < 64)  { gameGlobal->toneHz = 64; }
-    if (gameGlobal->toneHz > 512) { gameGlobal->toneHz = 512; }
+    gameTest->toneHz += 8 * gameInput->mouseScrV;
+    if (gameTest->toneHz < 64)  { gameTest->toneHz = 64; }
+    if (gameTest->toneHz > 512) { gameTest->toneHz = 512; }
 #endif
-    gameGlobal->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
-    gameGlobal->halfWavePeriod = gameGlobal->wavePeriod / 2;
+    gameTest->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameTest->toneHz;
+    gameTest->halfWavePeriod = gameTest->wavePeriod / 2;
 
     // if the framerate drops, the audio gets choppy
     gameSound->audioToQueueBytes = gameSound->targetQueuedBytes - gameSound->queuedBytes;
@@ -146,21 +146,21 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
                                /(gameSound->bytesPerSamplePerChannel*AUDIO_CHANNELS);
 
         for (uint32_t i = 0; i < sampleCount; i++) {
-            int16_t sampleValue = gameGlobal->toneVolume;
+            int16_t sampleValue = gameTest->toneVolume;
 #ifdef SQUARE_WAVE_TEST
-            if ((gameGlobal->runningSampleIndex / gameGlobal->halfWavePeriod) % 2 == 0) {
+            if ((gameTest->runningSampleIndex / gameTest->halfWavePeriod) % 2 == 0) {
                 sampleValue *= -1;
             }
 #else 
-            gameGlobal->tWave = 2.0f*PI32 * ( (float)gameGlobal->runningSampleIndex
-                                             /(float)gameGlobal->wavePeriod        );
-            if (gameGlobal->tWave > 2.0f*PI32) {
-                gameGlobal->tWave -= 2.0f*PI32;
+            gameTest->tWave = 2.0f*PI32 * ( (float)gameTest->runningSampleIndex
+                                           /(float)gameTest->wavePeriod        );
+            if (gameTest->tWave > 2.0f*PI32) {
+                gameTest->tWave -= 2.0f*PI32;
             }
-            float sineValue = sinf(gameGlobal->tWave);
+            float sineValue = sinf(gameTest->tWave);
             sampleValue *= sineValue;
 #endif
-            gameGlobal->runningSampleIndex++;
+            gameTest->runningSampleIndex++;
             for (uint32_t j = 0; j < AUDIO_CHANNELS; j++) {
                 *sampleOut = sampleValue;
                 sampleOut++;
@@ -174,24 +174,20 @@ void audioTestDEBUG(GameInput *gameInput, GameGlobal *gameGlobal,
     //        gameSound->audioToQueueBytes, gameClocks->msLastFrame                        );
 }
 
-void gameUpdate(GameState *gameState, GameMemory *gameMemory)
+void gameUpdate(GameState *gameState, GameTest *gameTest)
 {
     if (gameState->gameInput.esc.isDown) {
         gameState->gameGlobal.quitGame = true;
         return;
     }
 
-    // printf("%.02f ms/f, %.02f f/s, %lu cycles\n", gameState->gameClocks.msPerFrame,
-    //                                               gameState->gameClocks.framesPerSecond,
-    //                                               gameState->gameClocks.elapsedCycleCount);
-
     inputTestDEBUG(&gameState->gameInput);
 
-    textureTestDEBUG(&gameState->gameInput, &gameState->gameGlobal,
+    textureTestDEBUG(&gameState->gameInput, gameTest,
                      &gameState->gameBuffer, &gameState->gameClocks);
 
-    audioTestDEBUG(&gameState->gameInput, &gameState->gameGlobal,
-                   &gameState->gameSound, &gameState->gameClocks );
+    audioTestDEBUG(&gameState->gameInput, gameTest,
+                   &gameState->gameSound, &gameState->gameClocks);
 
     // int n = 0;
     // for (int i = 0; i < 1000; i++) {

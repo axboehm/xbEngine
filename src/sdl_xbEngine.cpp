@@ -175,7 +175,7 @@ void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *heig
 {
     SDL_GetWindowSize(platformWindow->window, width, height);
     //NOTE[ALEX]: by default SDL will stretch the texture to fit the window
-    //            if it is smaller than the window dimensions
+    //            if it is smaller than the window dimensions, so this will not fail
     if (*width > WINDOW_MAX_WIDTH ) {
         printf("window width %u larger than maximum %u, clamping to maximum.\n",
                *width, (uint32_t)WINDOW_MAX_WIDTH                               );
@@ -218,7 +218,7 @@ void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, uint32_t targetRe
                                                         // this will be passed per call,
                                                         // so this is the minimum audio latency
     sdlAudioSettings.callback = 0; // if left empty, SDL_QueueAudio can be used
-    
+    //
     SDL_OpenAudio(&sdlAudioSettings, 0); //NOTE[ALEX]: passing 0 to the output will make this
                                          //            modify the passed input instead
 
@@ -241,7 +241,7 @@ void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, uint32_t targetRe
 
 void platformCloseSoundDevice()
 {
-    SDL_CloseAudio(); //NOTE[ALEX]: also included in SDL_Quit();
+    SDL_CloseAudio(); //NOTE[ALEX]: technically redundant, also included in SDL_Quit();
 }
 
 void platformQueueAudio(GameSound *gameSound, int16_t *audioToQueue, uint32_t audioToQueueBytes)
@@ -924,7 +924,6 @@ void platformUpdateWindow(PlatformWindow *platformWindow, PlatformTexture *platf
 
 int main(int argc, char **argv)
 {
-    // INITIALIZATION
     //NOTE[ALEX]: platform independent memory gets allocated from these allocation pools,
     //            platform dependent structs get allocated using malloc,
     //            sdl structs get allocated by sdl
@@ -946,6 +945,7 @@ int main(int argc, char **argv)
 
     xbAssert(gameMemory.initialized);
 
+#ifdef PRINT_MEMORY_SIZES
     printf("size of gameMemory.permanentMemSize: %lu\n", gameMemory.permanentMemSize);
     printf("size of gameMemory.transientMemSize: %lu\n", gameMemory.transientMemSize);
     printf("size of gameState: %lu (includes subsequent)\n", sizeof(GameState));
@@ -954,6 +954,7 @@ int main(int argc, char **argv)
     printf("size of gameClocks: %lu\n", sizeof(GameClocks));
     printf("size of gameBuffer: %lu\n", sizeof(GameBuffer));
     printf("size of gameSound: %lu\n", sizeof(GameSound));
+#endif
 
     xbAssert(sizeof(GameState) <= gameMemory.permanentMemSize);
 
@@ -988,23 +989,25 @@ int main(int argc, char **argv)
     platformOpenSoundDevice(targetAudioFrameLatency, AUDIO_REFRESH_RATE, gameSound);
     platformInitializeControllers(gameInput);
 
+    // transient memory test
+    xbAssert(sizeof(GameTest) <= gameMemory.transientMemSize);
+    GameTest *gameTest = (GameTest *)gameMemory.transientMem;
     //audio test
-    gameGlobal->toneHz = 256;
-    gameGlobal->toneVolume = 500;
-    gameGlobal->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameGlobal->toneHz;
-    gameGlobal->halfWavePeriod = gameGlobal->wavePeriod / 2;
+    gameTest->toneHz         = 261; // C-Major note tone frequency
+    gameTest->toneVolume     = 500;
+    gameTest->wavePeriod     = AUDIO_SAMPLES_PER_SECOND / gameTest->toneHz;
+    gameTest->halfWavePeriod = gameTest->wavePeriod / 2;
 
     // MAIN LOOP
     while (!gameGlobal->quitGame) {
         platformHandleEvents(gameBuffer, gameInput, gameGlobal);
 
         if (gameGlobal->stopRendering) {
-            //TODO[ALEX]: test this!
             platformWait(MINIMIZED_SLEEP_TIME);
             continue;
         }
 
-        gameUpdate(gameState, &gameMemory);
+        gameUpdate(gameState, gameTest);
         platformQueueAudio(gameSound, gameSound->audioToQueue, gameSound->audioToQueueBytes);
 
         platformUpdateWindow((PlatformWindow *)(gameBuffer->platformWindow),
@@ -1029,6 +1032,12 @@ int main(int argc, char **argv)
         }
 
         platformGetClocks(gameClocks);
+        
+#ifdef PRINT_FRAME_TIMES
+        printf("%.04fms/f, %.04ff/s, %lu cycles/f\n", gameClocks->msLastFrame,
+                                                      (1.0f/gameClocks->msLastFrame),
+                                                      gameClocks->elapsedCycleCount     );
+#endif
     }
 
     // CLEANUP

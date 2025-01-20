@@ -8,30 +8,19 @@
 struct GameMemory {
     uint8_t   initialized;
     uint64_t  permanentMemSize;
-    uint64_t *permanentMem; //NOTE[ALEX]: this is uint64_t, only so that I can initialize to 0
+    void     *permanentMem;
     uint64_t  transientMemSize;
-    uint64_t *transientMem;
+    void     *transientMem;
 };
 
+// PERMANENT MEMORY
 struct GameGlobal {
     int32_t  quitGame;
     int32_t  stopRendering;
     uint32_t monitorRefreshRate;   // refresh rate that the monitor supports (0 if unknown)
     uint32_t renderingRefreshRate; // refresh rate used to render (can be set manually)
     float    targetTimePerFrame;   // in ms
-    uint64_t gameFrame; // counts frames
-
-    //TODO[ALEX]: testing!
-    // gradient
-    int32_t  offsetX; //TODO[ALEX]: this should be in transient memory!
-    int32_t  offsetY;
-    // audio
-    float    tWave;
-    uint32_t runningSampleIndex;
-    uint32_t toneHz;
-    uint32_t toneVolume;
-    uint32_t wavePeriod;
-    uint32_t halfWavePeriod;
+    uint64_t gameFrame;            // counts total frames since startup
 };
 
 struct ButtonState {
@@ -239,11 +228,13 @@ struct GameClocks {
 };
 
 struct GameBuffer {
-    void           *platformWindow;
+    void     *platformWindow;
     int       width;
     int       height;
     uint32_t  bytesPerPixel;
     void     *platformTexture;
+    //NOTE[ALEX]: for an uncompressed 4K texture with 4 bytes per pixel,
+    //            the allocated memory is about 32mb
     uint8_t   textureMemory[GAMEBUFFER_BYTES_PER_PIXEL*WINDOW_MAX_WIDTH*WINDOW_MAX_HEIGHT];
 };
 
@@ -263,7 +254,22 @@ struct GameState {
     GameSound  gameSound;
 };
 
-void gameUpdate(GameState *gameState, GameMemory *gameMemory);
+// TRANSIENT MEMORY
+struct GameTest {
+    //TODO[ALEX]: testing!
+    // gradient
+    int32_t  offsetX; //TODO[ALEX]: this should be in transient memory!
+    int32_t  offsetY;
+    // audio
+    float    tWave;
+    uint32_t runningSampleIndex;
+    uint32_t toneHz;
+    uint32_t toneVolume;
+    uint32_t wavePeriod;
+    uint32_t halfWavePeriod;
+};
+
+void gameUpdate(GameState *gameState, GameTest *gameTest);
 
 uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
 

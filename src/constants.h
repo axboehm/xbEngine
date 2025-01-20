@@ -15,6 +15,8 @@
 #endif
 
 // DEBUG
+#define PRINT_MEMORY_SIZES
+// #define PRINT_FRAME_TIMES
 // #define INPUT_TEST_MOUSE
 // #define INPUT_TEST_AXES
 // #define INPUT_TEST_PRESSES
