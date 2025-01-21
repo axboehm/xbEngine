@@ -7,7 +7,7 @@
 
 //NOTE[ALEX]: platform dependent definitions should stay in this file,
 //            all other files should be independent of the platform,
-//            use void * to point to PlatformStructs
+//            use void * in other files to point to PlatformStructs
 
 struct PlatformWindow;
 struct PlatformTexture;
@@ -30,8 +30,7 @@ uint32_t platformGetRefreshRate(PlatformWindow *platformWindow);
 
 void platformWait(uint32_t waitTimeMilliSeconds);
 
-PlatformWindow *platformOpenWindow(char *windowTitle,
-                                   uint32_t createWidth, uint32_t createHeight);
+PlatformWindow *platformOpenWindow(char *windowTitle, int createWidth, int createHeight);
 void platformCloseWindow(PlatformWindow *platformWindow);
 void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
 void platformOpenBackBuffer(GameBuffer *gameBuffer);

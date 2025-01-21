@@ -26,7 +26,7 @@
 // #define INPUT_TEST_MOUSE
 // #define INPUT_TEST_AXES
 // #define INPUT_TEST_PRESSES
-// #define INPUT_TEST_DOWNS
+#define INPUT_TEST_DOWNS
 
 // WINDOW & GAMEBUFFER
 #define WINDOW_TITLE "xbEngine_Window_Title"

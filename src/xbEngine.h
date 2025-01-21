@@ -93,85 +93,14 @@ struct GameInput {
         };
     };
     union {
+        //NOTE[ALEX]: order like international keyboard layout (left to right, top to bottom)
+        //            only relevant for debug printing of keyboard presses or if buttons are
+        //            addressed by an array index
         ButtonState keys[101];
         struct {
-            ButtonState a;
-            ButtonState b;
-            ButtonState c;
-            ButtonState d;
-            ButtonState e;
-            ButtonState f;
-            ButtonState g;
-            ButtonState h;
-            ButtonState i;
-            ButtonState j;
-            ButtonState k;
-            ButtonState l;
-            ButtonState m;
-            ButtonState n;
-            ButtonState o;
-            ButtonState p;
-            ButtonState q;
-            ButtonState r;
-            ButtonState s;
-            ButtonState t;
-            ButtonState u;
-            ButtonState v;
-            ButtonState w;
-            ButtonState x;
-            ButtonState y;
-            ButtonState z;
-
-            ButtonState backQuote;
-            ButtonState minus;
-            ButtonState equals;
-            ButtonState leftBracket;
-            ButtonState rightBracket;
-            ButtonState semicolon;
-            ButtonState quote;
-            ButtonState comma;
-            ButtonState period;
-            ButtonState slash;
-
-            ButtonState one;
-            ButtonState two;
-            ButtonState three;
-            ButtonState four;
-            ButtonState five;
-            ButtonState six;
-            ButtonState seven;
-            ButtonState eight;
-            ButtonState nine;
-            ButtonState zero;
-
+            // row 0
             ButtonState esc;
-            ButtonState tab;
-            ButtonState caps;
-            ButtonState backspace;
-            ButtonState backslash;
-            ButtonState enter;
 
-            ButtonState space;
-
-            ButtonState lCtrl;
-            ButtonState rCtrl;
-            ButtonState lShift;
-            ButtonState rShift;
-            ButtonState lAlt;
-            ButtonState rAlt;
-
-            ButtonState insert;
-            ButtonState home;
-            ButtonState pageUp;
-            ButtonState del;
-            ButtonState end;
-            ButtonState pageDown;
-
-            ButtonState up;
-            ButtonState down;
-            ButtonState left;
-            ButtonState right;
-            
             ButtonState f1;
             ButtonState f2;
             ButtonState f3;
@@ -184,28 +113,124 @@ struct GameInput {
             ButtonState f10;
             ButtonState f11;
             ButtonState f12;
-            
+
             ButtonState printScreen;
             ButtonState scrollLock;
             ButtonState pause;
+
+            // row 1
+            ButtonState backQuote;
+
+            ButtonState one;
+            ButtonState two;
+            ButtonState three;
+            ButtonState four;
+            ButtonState five;
+            ButtonState six;
+            ButtonState seven;
+            ButtonState eight;
+            ButtonState nine;
+            ButtonState zero;
+            ButtonState minus;
+            ButtonState equals;
+
+            ButtonState backspace;
+
+            ButtonState insert;
+            ButtonState home;
+            ButtonState pageUp;
 
             ButtonState numLock;
             ButtonState numDivide;
             ButtonState numMultiply;
             ButtonState numMinus;
-            ButtonState numPlus;
-            ButtonState numEnter;
-            ButtonState numPeriod;
-            ButtonState numOne;
-            ButtonState numTwo;
-            ButtonState numThree;
-            ButtonState numFour;
-            ButtonState numFive;
-            ButtonState numSix;
+
+            // row 2
+            ButtonState tab;
+
+            ButtonState q;
+            ButtonState w;
+            ButtonState e;
+            ButtonState r;
+            ButtonState t;
+            ButtonState y;
+            ButtonState u;
+            ButtonState i;
+            ButtonState o;
+            ButtonState p;
+
+            ButtonState leftBracket;
+            ButtonState rightBracket;
+            ButtonState backslash;
+
+            ButtonState del;
+            ButtonState end;
+            ButtonState pageDown;
+
             ButtonState numSeven;
             ButtonState numEight;
             ButtonState numNine;
+            ButtonState numPlus;
+
+            // row 3
+            ButtonState caps;
+
+            ButtonState a;
+            ButtonState s;
+            ButtonState d;
+            ButtonState f;
+            ButtonState g;
+            ButtonState h;
+            ButtonState j;
+            ButtonState k;
+            ButtonState l;
+            ButtonState semicolon;
+            ButtonState quote;
+
+            ButtonState enter;
+
+            ButtonState numFour;
+            ButtonState numFive;
+            ButtonState numSix;
+
+            // row 4
+            ButtonState lShift;
+
+            ButtonState z;
+            ButtonState x;
+            ButtonState c;
+            ButtonState v;
+            ButtonState b;
+            ButtonState n;
+            ButtonState m;
+            ButtonState comma;
+            ButtonState period;
+            ButtonState slash;
+
+            ButtonState rShift;
+
+            ButtonState up;
+
+            ButtonState numOne;
+            ButtonState numTwo;
+            ButtonState numThree;
+            ButtonState numEnter;
+
+            // row 5
+            ButtonState lCtrl;
+            ButtonState lAlt;
+
+            ButtonState space;
+
+            ButtonState rAlt;
+            ButtonState rCtrl;
+
+            ButtonState left;
+            ButtonState down;
+            ButtonState right;
+            
             ButtonState numZero;
+            ButtonState numPeriod;
 
             ButtonState terminatorKeys; // always the last button
         };

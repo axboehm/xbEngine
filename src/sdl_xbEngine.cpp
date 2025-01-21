@@ -7,7 +7,6 @@
 #include <SDL_audio.h>
 #include <SDL_events.h>
 #include <SDL_gamecontroller.h>
-// #include <cassert> // for assert macro - use xbAssert from constants.h instead
 #include <cstdio> // for printf
 #include <cstring> // for memset
 #include <immintrin.h> // for __rdtsc (should work on all x86 compilers)
@@ -17,11 +16,18 @@
 
 struct PlatformWindow {
     SDL_Window   *window;
-    SDL_Renderer *renderer;
+    SDL_Renderer *renderer; // software renderer
 };
 
 struct PlatformTexture {
     SDL_Texture *textureHandle;
+};
+
+struct PlatformController {
+    SDL_GameController *controllerHandle;
+    SDL_JoystickID      sdlID; //NOTE[ALEX]: every time a controller gets plugged in, it gets a
+                               //            new ID, use this to reference where to store input
+                               //            -1 is an invalid ID and should be the initialized value
 };
 
 void platformInit()
@@ -86,14 +92,14 @@ uint32_t platformGetRefreshRate(PlatformWindow *platformWindow)
 
 void platformWait(uint32_t waitTimeMilliSeconds)
 {
-    uint32_t timeToSleep = waitTimeMilliSeconds - 1; //NOTE[ALEX]: occasionally, the wait call is
+    uint32_t timeToSleep = waitTimeMilliSeconds - 1; //NOTE[ALEX]: occasionally the wait call is
                                                      //            not granular enough,
                                                      //            so add some slack here
     // printf("%s sleeping %ums\n", __FUNCTION__, timeToSleep);
     SDL_Delay(timeToSleep);
 }
 
-PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint32_t createHeight)
+PlatformWindow *platformOpenWindow(char *windowTitle, int createWidth, int createHeight)
 {
     PlatformWindow *platformWindow = (PlatformWindow *)malloc(sizeof(PlatformWindow));
     platformWindow->window   = 0;
@@ -102,8 +108,8 @@ PlatformWindow *platformOpenWindow(char *windowTitle, uint32_t createWidth, uint
     platformWindow->window = SDL_CreateWindow(windowTitle,
                                               SDL_WINDOWPOS_UNDEFINED,
                                               SDL_WINDOWPOS_UNDEFINED,
-                                              (int)createWidth, (int)createHeight,
-                                              SDL_WINDOW_RESIZABLE                );
+                                              createWidth, createHeight,
+                                              SDL_WINDOW_RESIZABLE      );
     if (!platformWindow->window) {
         printf("%s SDL_CreateWindow failed\n", __FUNCTION__);
     } else {
@@ -134,7 +140,7 @@ void platformCloseWindow(PlatformWindow *platformWindow)
     if (platformWindow) {
         free(platformWindow);
     } else {
-        printf("%s no memory to free\n", __FUNCTION__);
+        printf("%s no platformWindow memory to free\n", __FUNCTION__);
     }
 }
 
@@ -162,7 +168,7 @@ void platformCloseBackBuffer(GameBuffer *gameBuffer)
     if (gameBuffer->platformTexture) {
         free(gameBuffer->platformTexture); 
     } else {
-        printf("gameGlobal->testTexture.memory nothing to free\n");
+        printf("%s no platformTexture memory to free\n", __FUNCTION__);
     }
 }
 
@@ -213,7 +219,7 @@ void platformOpenSoundDevice(uint32_t targetAudioFrameLatency, uint32_t targetRe
                                                         // this will be passed per call,
                                                         // so this is the minimum audio latency
     sdlAudioSettings.callback = 0; // if left empty, SDL_QueueAudio can be used
-    //
+    
     SDL_OpenAudio(&sdlAudioSettings, 0); //NOTE[ALEX]: passing 0 to the output will make this
                                          //            modify the passed input instead
 
@@ -589,13 +595,6 @@ void SDL2KeyboardKeyUp(SDL_Event keyEvent, GameInput *gameInput)
     }
 }
 
-struct PlatformController {
-    SDL_GameController *controllerHandle;
-    SDL_JoystickID      sdlID; //NOTE[ALEX]: every time a controller gets plugged in, it gets a
-                               //            new ID, use this to reference where to store input
-                               //            -1 is an invalid ID and should be the initialized value
-};
-
 int32_t SDL2FindControllerID(GameInput *gameInput, SDL_JoystickID joystickID)
 {
     for (int32_t i = 0; i < MAX_CONTROLLERS; i++) {
@@ -698,6 +697,10 @@ void SDL2ControllerButtonUp(SDL_Event cButtonEvent, GameInput *gameInput,
     }
 }
 
+// considers the value between deadzones and normalized it to range [0, 1],
+// then scales it back up to the full range expressed by a 16 bit signed integer
+//NOTE[ALEX]: the point of the scaling is to have access to the full range of the type
+//            but not be limited by deadzones (at lower and upper ends of range)
 void SDL2ControllerAxisMotion(SDL_Event cAxisEvent, GameInput *gameInput,
                               ControllerInput *controllerInput           )
 {
@@ -748,7 +751,7 @@ void platformInitializeControllers(GameInput *gameInput)
             platformController->sdlID = -1;
             gameInput->platformController[i] = platformController;
         } else {
-            printf("%s controller already initialized.\n", __FUNCTION__);
+            printf("%s platformController[%u] already initialized.\n", __FUNCTION__, i);
         }
     }
 }
@@ -765,7 +768,7 @@ void platformCloseControllers(GameInput *gameInput)
             }
             free(gameInput->platformController[i]);
         } else {
-            printf("gameInput->platformControllers[%u] nothing to free.\n", i);
+            printf("%s platformControllers[%u] nothing to free.\n", __FUNCTION__, i);
         }
     }
 }
@@ -784,7 +787,7 @@ void platformResetControllers(GameInput *gameInput)
                 printf("Closed Game Controller %u.\n", i);
             }
         } else {
-            printf("%s platformController %u not initialized.\n", __FUNCTION__, i);
+            printf("%s platformController[%u] not initialized.\n", __FUNCTION__, i);
         }
     }
 
@@ -794,7 +797,8 @@ void platformResetControllers(GameInput *gameInput)
     for (uint32_t i = 0; i < maxControllers; i++) { // open all connected controllers
         if (!SDL_IsGameController(i)) { continue; }
         if (controllerIndex >= MAX_CONTROLLERS) {
-            printf("%s too many controllers plugged in.\n", __FUNCTION__);
+            printf("%s too many controllers plugged in, only %u supported.\n",
+                   __FUNCTION__, MAX_CONTROLLERS                              );
             break;
         }
         gameInput->controllerConnected[i] = 1;
@@ -805,13 +809,14 @@ void platformResetControllers(GameInput *gameInput)
             SDL_GameControllerGetJoystick(platformController->controllerHandle);
         platformController->sdlID = SDL_JoystickInstanceID(joystick);
 
-        // gameInput->platformControllers[controllerIndex]->sdlID = 
         printf("Opened Game Controller %u to controllerIndex %u with sdlID %i.\n",
                i, controllerIndex, platformController->sdlID                      );
         controllerIndex++;
     }
 }
 
+//NOTE[ALEX]: this function has a cases that do not get specifically handled yet
+//            they are added to prevent a lot of unhandled event messages from appearing
 void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlobal *gameGlobal)
 {
     // cleanup from previous frame to prevent inputs sticking
@@ -895,11 +900,12 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
             case SDL_TEXTINPUT: {
                 //NOTE[ALEX]: while running from the terminal, every key press also
                 //            sends an event of this type
+                //            (not tested outside of terminal)
             } break;
             case SDL_CLIPBOARDUPDATE: {
             } break;
             default: {
-                printf("SDL_Event %x unhandled\n", event.type);
+                printf("SDL_Event %x unhandled\n", event.type); // sdl event codes are hex
             } break;
         }
     }
@@ -919,7 +925,7 @@ int main(int argc, char **argv)
     //            platform dependent structs get allocated using malloc,
     //            sdl structs get allocated by sdl
     GameMemory gameMemory = {};
-    gameMemory.permanentMemSize = Megabytes(64);
+    gameMemory.permanentMemSize = Megabytes(48);
     gameMemory.permanentMem     = (uint64_t *)malloc(gameMemory.permanentMemSize);
     gameMemory.transientMemSize = Gigabytes(1);
     gameMemory.transientMem     = (uint64_t *)malloc(gameMemory.transientMemSize);
@@ -937,17 +943,28 @@ int main(int argc, char **argv)
     xbAssert(gameMemory.initialized);
 
 #ifdef PRINT_MEMORY_SIZES
-    printf("size of gameMemory.permanentMemSize: %lu\n", gameMemory.permanentMemSize);
-    printf("size of gameMemory.transientMemSize: %lu\n", gameMemory.transientMemSize);
+    printf("MEMORY:\n");
+    printf("gameMemory.permanentMemSize: %lu\n", gameMemory.permanentMemSize);
     printf("size of gameState: %lu (includes subsequent)\n", sizeof(GameState));
     printf("size of gameGlobal: %lu\n", sizeof(GameGlobal));
     printf("size of gameInput: %lu\n", sizeof(GameInput));
     printf("size of gameClocks: %lu\n", sizeof(GameClocks));
     printf("size of gameBuffer: %lu\n", sizeof(GameBuffer));
     printf("size of gameSound: %lu\n", sizeof(GameSound));
+    printf(" -> gameMemory.permanentMem: %lu / %lu bytes used (%.04f%%).\n",
+           sizeof(GameState), gameMemory.permanentMemSize,
+           (float)sizeof(GameState)/(float)gameMemory.permanentMemSize    );
+
+    printf("gameMemory.transientMemSize: %lu\n", gameMemory.transientMemSize);
+    printf("size of gameTest: %lu\n", sizeof(GameTest));
+    printf(" -> gameMemory.transientMem: %lu / %lu bytes used (%.04f%%).\n",
+           sizeof(GameTest), gameMemory.transientMemSize,
+           (float)sizeof(GameTest)/(float)gameMemory.transientMemSize     );
+    printf("\n");
 #endif
 
     xbAssert(sizeof(GameState) <= gameMemory.permanentMemSize);
+    xbAssert(sizeof(GameTest)  <= gameMemory.transientMemSize);
 
     GameState  *gameState  = (GameState *)gameMemory.permanentMem;
     GameGlobal *gameGlobal = &gameState->gameGlobal;
@@ -970,7 +987,7 @@ int main(int argc, char **argv)
     platformInitClocks(gameClocks);
     gameGlobal->monitorRefreshRate = platformGetRefreshRate
         ((PlatformWindow *)(gameBuffer->platformWindow));
-    if (gameGlobal->monitorRefreshRate == 0) { //NOTE[ALEX]: temporary
+    if (gameGlobal->monitorRefreshRate == 0) { // fallback
         gameGlobal->renderingRefreshRate = 60;
     } else {
         gameGlobal->renderingRefreshRate = gameGlobal->monitorRefreshRate;
@@ -981,7 +998,6 @@ int main(int argc, char **argv)
     platformInitializeControllers(gameInput);
 
     // transient memory test
-    xbAssert(sizeof(GameTest) <= gameMemory.transientMemSize);
     GameTest *gameTest = (GameTest *)gameMemory.transientMem;
     //audio test
     gameTest->toneHz         = 261; // C-Major note tone frequency
@@ -1008,9 +1024,10 @@ int main(int argc, char **argv)
 
         platformGetElapsedCPU(gameClocks);
 
-        float mSecondsElapsed = 1000.0f* platformGetSecondsElapsed(gameClocks->lastPerfCounter,
-                                                          platformGetPerformanceCounter(),
-                                                          gameClocks->perfCountFrequency  );
+        float mSecondsElapsed = 1000.0f
+            * platformGetSecondsElapsed(gameClocks->lastPerfCounter,
+                                        platformGetPerformanceCounter(),
+                                        gameClocks->perfCountFrequency  );
         int32_t timeToSleep = gameGlobal->targetTimePerFrame - mSecondsElapsed;
         if (timeToSleep > 0) {
             platformWait(timeToSleep);

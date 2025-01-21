@@ -12,7 +12,7 @@ uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput) {
     return id;
 }
 
-void inputTestDEBUG(GameInput *gameInput)
+void inputTestDEBUG(GameInput *gameInput, GameBuffer *gameBuffer)
 {
     // mouse test
 #ifdef INPUT_TEST_MOUSE
@@ -42,9 +42,45 @@ void inputTestDEBUG(GameInput *gameInput)
     uint32_t keyCount = sizeof(gameInput->keys)/sizeof(gameInput->keys[0]);
     for (uint32_t i = 0; i < keyCount; i++) {
 #ifdef INPUT_TEST_DOWNS
-        if (gameInput->keys[i].isDown) {
-            printf("Key %u held down\n", i);
+        uint32_t color  = 0xFF141478;
+        uint32_t row    = 0;
+        uint32_t column = 0;
+        if        (i < (&gameInput->backQuote - &gameInput->keys[0])) {
+            column = i;
+        } else if (   i >= (&gameInput->backQuote - &gameInput->keys[0])
+                   && i <  (&gameInput->tab       - &gameInput->keys[0])) { 
+            row = 1;
+            column = i - (&gameInput->backQuote - &gameInput->keys[0]);
+        } else if (   i >= (&gameInput->tab  - &gameInput->keys[0])
+                   && i <  (&gameInput->caps - &gameInput->keys[0])) {
+            row = 2;
+            column = i - (&gameInput->tab - &gameInput->keys[0]);
+        } else if (   i >= (&gameInput->caps   - &gameInput->keys[0])
+                   && i <  (&gameInput->lShift - &gameInput->keys[0])) {
+            row = 3;
+            column = i - (&gameInput->caps - &gameInput->keys[0]);
+        } else if (   i >= (&gameInput->lShift - &gameInput->keys[0])
+                   && i <  (&gameInput->lCtrl  - &gameInput->keys[0])) {
+            row = 4;
+            column = i - (&gameInput->lShift - &gameInput->keys[0]);
+        } else if (i >= (&gameInput->lCtrl     - &gameInput->keys[0])) {
+            row = 5;
+            column = i - (&gameInput->lCtrl - &gameInput->keys[0]);
         }
+
+        if (gameInput->keys[i].isDown) {
+            //printf("Key %u held down\n", i);
+            color = 0xFF2299FF;
+        }
+
+        float cornerOffset = 50.0f;
+        float keyThickness = 30.0f;
+        float keySpacing   = 10.0f;
+        float startX = cornerOffset + column*keySpacing + column*keyThickness;
+        float endX   = startX + keyThickness;
+        float startY = cornerOffset + row*keySpacing + row*keyThickness;
+        float endY   = startY + keyThickness;
+        drawRectangle(startX, startY, endX, endY, gameBuffer, color);
 #endif
 #ifdef INPUT_TEST_PRESSES
         if (gameInput->keys[i].transitionCount > 1) {
@@ -167,6 +203,19 @@ void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
     //        gameSound->audioToQueueBytes, gameClocks->msLastFrame                        );
 }
 
+void mouseTestDEBUG(GameInput *gameInput, GameBuffer *gameBuffer)
+{
+    float colorMult = ((float)gameInput->mousePosY) / ((float)gameBuffer->height);
+    uint8_t red   = lerpU8(0x00, 0xFF, colorMult);
+    uint8_t green = lerpU8(0x00, 0xFF, 1.0f-colorMult);
+    uint32_t mouseVisColor = 0xFF000000 | (red << 16) | (green << 8); // AARRGGBB
+    
+    float rectThickness = 10.0f;
+    drawRectangle(gameInput->mousePosX - rectThickness, gameInput->mousePosY - rectThickness,
+                  gameInput->mousePosX + rectThickness, gameInput->mousePosY + rectThickness,
+                  gameBuffer, mouseVisColor);
+}
+
 // will draw a rectangle between rounded pixel coordinates in specified color
 // will draw from start pixel coordinates up to but not including end pixel coordinates
 // this should allow to draw perfectly touching rectangles even considering sub pixel positioning
@@ -184,6 +233,8 @@ void drawRectangle(float startXF, float startYF, float endXF, float endYF,
     endX   = minI32(endX, (float)gameBuffer->width);
     endY   = minI32(endY, (float)gameBuffer->height);
 
+    // printf("%s from (%i, %i) to (%i, %i)\n", __FUNCTION__, startX, startY, endX, endY);
+
     uint8_t *row = (uint8_t *)gameBuffer->textureMemory
                      + startX * gameBuffer->bytesPerPixel
                      + startY * gameBuffer->pitch;
@@ -199,32 +250,24 @@ void drawRectangle(float startXF, float startYF, float endXF, float endYF,
 
 void gameUpdate(GameState *gameState, GameTest *gameTest)
 {
+    GameGlobal *gameGlobal = &gameState->gameGlobal;
     GameInput  *gameInput  = &gameState->gameInput;
     GameClocks *gameClocks = &gameState->gameClocks;
     GameBuffer *gameBuffer = &gameState->gameBuffer;
     GameSound  *gameSound  = &gameState->gameSound;
 
-    if (gameState->gameInput.esc.isDown) {
-        gameState->gameGlobal.quitGame = true;
+    if (gameInput->esc.isDown) {
+        gameGlobal->quitGame = true;
         return;
     }
 
-    inputTestDEBUG(gameInput);
-
     textureTestDEBUG(gameInput, gameTest, gameBuffer, gameClocks);
+
+    inputTestDEBUG(gameInput, gameBuffer);
 
     audioTestDEBUG(gameInput, gameTest, gameSound, gameClocks, gameBuffer);
 
+    mouseTestDEBUG(gameInput, gameBuffer);
 
-    float colorMult = ((float)gameInput->mousePosY) / ((float)gameBuffer->height);
-    uint8_t red   = lerpU8(0x00, 0xFF, colorMult);
-    uint8_t green = lerpU8(0x00, 0xFF, 1.0f-colorMult);
-    uint32_t mouseVisColor = 0xFF000000 | (red << 16) | (green << 8); // AARRGGBB
-    
-    float rectThickness = 10.0f;
-    drawRectangle(gameInput->mousePosX - rectThickness, gameInput->mousePosY - rectThickness,
-                  gameInput->mousePosX + rectThickness, gameInput->mousePosY + rectThickness,
-                  gameBuffer, mouseVisColor);
-
-    gameState->gameGlobal.gameFrame++;
+    gameGlobal->gameFrame++;
 }
