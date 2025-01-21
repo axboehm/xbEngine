@@ -3,6 +3,8 @@
 
 #include "xbEngine.h"
 
+#include <stdint.h> // defines fixed size types, C++ version is <cstdint>
+
 //NOTE[ALEX]: platform dependent definitions should stay in this file,
 //            all other files should be independent of the platform,
 //            use void * to point to PlatformStructs
@@ -33,6 +35,7 @@ PlatformWindow *platformOpenWindow(char *windowTitle,
 void platformCloseWindow(PlatformWindow *platformWindow);
 void platformGetWindowSize(PlatformWindow *platformWindow, int *width, int *height);
 void platformOpenBackBuffer(GameBuffer *gameBuffer);
+void platformUpdateBackBuffer(GameBuffer *gameBuffer);
 void platformCloseBackBuffer(GameBuffer *gameBuffer);
 
 void platformResizeTexture(PlatformWindow *platformWindow, PlatformTexture *platformTexture,

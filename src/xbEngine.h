@@ -232,6 +232,7 @@ struct GameBuffer {
     int       width;
     int       height;
     uint32_t  bytesPerPixel;
+    uint32_t  pitch;
     void     *platformTexture;
     //NOTE[ALEX]: for an uncompressed 4K texture with 4 bytes per pixel,
     //            the allocated memory is about 32mb
@@ -255,12 +256,12 @@ struct GameState {
 };
 
 // TRANSIENT MEMORY
+//NOTE[ALEX]: for testing input, audio and rendering
 struct GameTest {
-    //TODO[ALEX]: testing!
-    // gradient
-    int32_t  offsetX; //TODO[ALEX]: this should be in transient memory!
+    // gradient background
+    int32_t  offsetX;
     int32_t  offsetY;
-    // audio
+    // audio sine wave
     float    tWave;
     uint32_t runningSampleIndex;
     uint32_t toneHz;
@@ -271,8 +272,8 @@ struct GameTest {
 
 void gameUpdate(GameState *gameState, GameTest *gameTest);
 
-void drawRectangle(int startX, int startY, int endX, int endY,
-                   GameBuffer *gameBuffer, uint32_t color     );
+void drawRectangle(float startXF, float startYF, float endXF, float endYF,
+                   GameBuffer *gameBuffer, uint32_t color                 );
 uint32_t getKeyID(ButtonState *buttonState, GameInput *gameInput);
 
 #endif // include guard end

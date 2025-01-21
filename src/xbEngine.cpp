@@ -1,4 +1,5 @@
 #include "xbEngine.h"
+#include "xbMath.h"
 #include "constants.h"
 
 #include <cstdio> // for printf
@@ -105,13 +106,15 @@ void textureTestDEBUG(GameInput *gameInput, GameTest *gameTest,
     for (int y = 0; y < gameBuffer->height; y++) {
         uint8_t *pixel = (uint8_t *)row;
         for (int x = 0; x < gameBuffer->width; x++) {
-            *pixel = (uint8_t)(x + gameTest->offsetX);
+            uint8_t value = (uint8_t)y;
+            if (x % 256 == 0 || y % 256 == 0) { value = 0; }
+            *pixel = value; // blue
             pixel++;
-            *pixel = (uint8_t)(y + gameTest->offsetY);
+            *pixel = value; // green
             pixel++;
-            *pixel = 0;
+            *pixel = value; // red
             pixel++;
-            *pixel = 255;
+            *pixel = 255; // alpha
             pixel++;
         }
         row += pitch;
@@ -121,7 +124,9 @@ void textureTestDEBUG(GameInput *gameInput, GameTest *gameTest,
 void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
                     GameSound *gameSound, GameClocks *gameClocks, GameBuffer *gameBuffer)
 {
-    float toneHz = 64.0f + 512.0f * (((float)gameInput->mousePosY) / ((float)gameBuffer->height));
+    float toneMult = 1.0f - (((float)gameInput->mousePosY) / ((float)gameBuffer->height));
+          toneMult = clampF32(toneMult, 0.0f, 1.0f); // necessary when resizing window
+    float toneHz   = 64.0f + 512.0f * toneMult;
     gameTest->toneHz = (uint32_t)toneHz;
 
     gameTest->wavePeriod = AUDIO_SAMPLES_PER_SECOND / gameTest->toneHz;
@@ -162,18 +167,33 @@ void audioTestDEBUG(GameInput *gameInput, GameTest *gameTest,
     //        gameSound->audioToQueueBytes, gameClocks->msLastFrame                        );
 }
 
-void drawRectangle(int startX, int startY, int endX, int endY,
-                   GameBuffer *gameBuffer, uint32_t color       )
+// will draw a rectangle between rounded pixel coordinates in specified color
+// will draw from start pixel coordinates up to but not including end pixel coordinates
+// this should allow to draw perfectly touching rectangles even considering sub pixel positioning
+void drawRectangle(float startXF, float startYF, float endXF, float endYF,
+                   GameBuffer *gameBuffer, uint32_t color                 )
 {
-    if (startX < 0) { startX = 0; }
-    if (startY < 0) { startY = 0; }
-    if (endX > gameBuffer->width)  { endX = gameBuffer->width; }
-    if (endY > gameBuffer->height) { endY = gameBuffer->height; }
-    for (int i = startX; i < endX; i++) {
-        for (int j = startY; j < endY; j++) {
-            uint32_t *pixel = (uint32_t *)gameBuffer->textureMemory + i + j*gameBuffer->width;
+    int32_t startX = roundF32toI32(startXF);
+    int32_t startY = roundF32toI32(startYF);
+    int32_t endX   = roundF32toI32(endXF);
+    int32_t endY   = roundF32toI32(endYF);
+
+    //NOTE[ALEX]: true clamping is not required, as the for loop takes care of the remaining cases
+    startX = maxI32(startX, 0.0f);
+    startY = maxI32(startY, 0.0f);
+    endX   = minI32(endX, (float)gameBuffer->width);
+    endY   = minI32(endY, (float)gameBuffer->height);
+
+    uint8_t *row = (uint8_t *)gameBuffer->textureMemory
+                     + startX * gameBuffer->bytesPerPixel
+                     + startY * gameBuffer->pitch;
+    for (int j = startY; j < endY; j++) {
+        uint32_t *pixel = (uint32_t *)row;
+        for (int i = startX; i < endX; i++) {
             *pixel = color;
+            pixel++;
         }
+        row += gameBuffer->pitch;
     }
 }
 
@@ -193,20 +213,18 @@ void gameUpdate(GameState *gameState, GameTest *gameTest)
 
     textureTestDEBUG(gameInput, gameTest, gameBuffer, gameClocks);
 
-    int rectThickness = 10;
-    drawRectangle(gameInput->mousePosX - rectThickness, gameInput->mousePosY - rectThickness,
-                  gameInput->mousePosX + rectThickness, gameInput->mousePosY + rectThickness,
-                  gameBuffer, 0xFFFFFFFF);
-
     audioTestDEBUG(gameInput, gameTest, gameSound, gameClocks, gameBuffer);
 
-    // int n = 0;
-    // for (int i = 0; i < 1000; i++) {
-    //     for (int j = 0; j < 5000; j++) {
-    //         n = i*j;
-    //     }
-    // }
-    // printf("%i\n", n);
+
+    float colorMult = ((float)gameInput->mousePosY) / ((float)gameBuffer->height);
+    uint8_t red   = lerpU8(0x00, 0xFF, colorMult);
+    uint8_t green = lerpU8(0x00, 0xFF, 1.0f-colorMult);
+    uint32_t mouseVisColor = 0xFF000000 | (red << 16) | (green << 8); // AARRGGBB
+    
+    float rectThickness = 10.0f;
+    drawRectangle(gameInput->mousePosX - rectThickness, gameInput->mousePosY - rectThickness,
+                  gameInput->mousePosX + rectThickness, gameInput->mousePosY + rectThickness,
+                  gameBuffer, mouseVisColor);
 
     gameState->gameGlobal.gameFrame++;
 }

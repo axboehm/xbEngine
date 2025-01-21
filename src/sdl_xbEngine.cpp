@@ -1,5 +1,6 @@
 #include "constants.h"
 #include "xbEngine.h"
+#include "xbMath.h"
 #include "sdl_xbEngine.h"
 
 #include <SDL.h>
@@ -22,18 +23,6 @@ struct PlatformWindow {
 struct PlatformTexture {
     SDL_Texture *textureHandle;
 };
-
-inline uint32_t safeTruncateUInt64(uint64_t value)
-{
-    xbAssert(value <= 0xFFFFFFFF);
-    return (uint32_t)value;
-}
-
-inline uint32_t roundF32toU32(float value)
-{
-    value += 0.5f;
-    return uint32_t(value);
-}
 
 void platformInit()
 {
@@ -155,11 +144,17 @@ void platformOpenBackBuffer(GameBuffer *gameBuffer)
     PlatformTexture *platformTexture = (PlatformTexture *)malloc(sizeof(PlatformTexture));
     platformTexture->textureHandle = 0;
     gameBuffer->platformTexture = platformTexture;
+    platformUpdateBackBuffer(gameBuffer);
+}
+
+void platformUpdateBackBuffer(GameBuffer *gameBuffer)
+{
     platformGetWindowSize((PlatformWindow *)(gameBuffer->platformWindow),
                           &gameBuffer->width, &gameBuffer->height);
     platformResizeTexture((PlatformWindow *)(gameBuffer->platformWindow),
                           (PlatformTexture *)(gameBuffer->platformTexture),
-                          gameBuffer->width, gameBuffer->height );
+                          gameBuffer->width, gameBuffer->height            );
+    gameBuffer->pitch = gameBuffer->bytesPerPixel * gameBuffer->width;
 }
 
 void platformCloseBackBuffer(GameBuffer *gameBuffer)
@@ -838,11 +833,7 @@ void platformHandleEvents(GameBuffer *gameBuffer, GameInput *gameInput, GameGlob
                         gameGlobal->stopRendering = false;
                     } break;
                     case SDL_WINDOWEVENT_RESIZED: {
-                        platformGetWindowSize((PlatformWindow *)(gameBuffer->platformWindow),
-                                              &gameBuffer->width, &gameBuffer->height        );
-                        platformResizeTexture((PlatformWindow *)(gameBuffer->platformWindow),
-                                              (PlatformTexture *)(gameBuffer->platformTexture),
-                                              gameBuffer->width, gameBuffer->height            );
+                        platformUpdateBackBuffer(gameBuffer);
                     } break;
                     case SDL_WINDOWEVENT_EXPOSED: {
                     } break;
@@ -1032,7 +1023,7 @@ int main(int argc, char **argv)
         }
 
         platformGetClocks(gameClocks);
-        
+
 #ifdef PRINT_FRAME_TIMES
         printf("%.04fms/f, %.04ff/s, %lu cycles/f\n", gameClocks->msLastFrame,
                                                       (1.0f/gameClocks->msLastFrame),

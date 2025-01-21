@@ -7,9 +7,15 @@
 #define Gigabytes(value) (((uint64_t)value) * 1024LL * 1024LL * 1024LL)
 #define PI32 3.14159265358979f
 
-// ASSERTIONS (XB_SLOW to be defined when compiling
+// ASSERTIONS (XB_SLOW to be defined when compiling)
+//NOTE[ALEX]: this custom assertion intentionally crashes the executable
+//            it could be replaced with the standard library's assert() (requires #include <cassert>)
+//            newer versions of gcc or clang do not crash the program when deferencing a
+//            null pointer anymore, so if `*(int *)0 = 0` does not work, try `__builtin_trap()`
+//            this custom assertion crashes slower than the standard c assert but does not
+//            require the standard library's import and is only defined when specified
 #if XB_SLOW
-#define xbAssert(expression) if(!(expression)) { *(int *)0 = 0; }
+#define xbAssert(expression) if(!(expression)) { __builtin_trap(); }
 #else
 #define xbAssert(expression)
 #endif

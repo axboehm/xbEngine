@@ -18,7 +18,7 @@ INCLUDES = -I$(SDLincludeDir)
 SDLCXXFLAGS = -D_REENTRANT
 CXXFLAGS = -g -Wall -Werror $(WARNINGSDISABLED) $(DEFINES) $(INCLUDES) $(SDLCXXFLAGS)
 
-dependencies = sdl_xbEngine.h xbEngine.h constants.h
+dependencies = sdl_xbEngine.h xbEngine.h xbMath.h constants.h
 
 objectFiles = sdl_xbEngine.o xbEngine.o
 objects = $(patsubst %,$(objectDir)/%,$(objectFiles))
@@ -31,4 +31,4 @@ pman : $(objects)
 	$(CXX) -o $(executableDir)/$@ $^ $(CXXFLAGS) $(LDLIBS) $(LDFLAGS)
 
 clean :
-	rm $(objectDir)/*.o $(executableDir)/pman
+	rm -f $(objectDir)/*.o $(executableDir)/pman
