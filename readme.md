@@ -17,7 +17,7 @@ To extend the application, call into your own code from the main loop in `sdl_xb
 
 # How to Build
 The project calls into SDL2 and requires a library to be available on the user's system. It can be compiled manually or the distribution's package can be used. [Installing SDL2](https://wiki.libsdl.org/SDL2/Installation) <br>
-or on ubuntu based systems: <br>
+Or on ubuntu based systems: <br>
 
 ```
 sudo apt update
@@ -35,7 +35,7 @@ sudo apt install build-essential
 
 <br>
 I use G++ on Linux Mint 21 using a Makefile to build. <br>
-To build (adjust the Makefile!): <br>
+To build using the Makefile: <br>
 
 ```
 cd src
@@ -43,13 +43,13 @@ make
 ```
 
 <br>
-or directly with G++: <br>
+Or directly with G++: <br>
 
 ```
 cd src
 g++ -c -o ../build/obj/sdl_xbEngine.o sdl_xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
 g++ -c -o ../build/obj/xbEngine.o xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
-g++ -o ../build/pman ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
+g++ -o ../build/xbEngine ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
 ```
 
 <br>
@@ -57,7 +57,7 @@ g++ -o ../build/pman ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -g -Wal
 To run: <br>
 
 ```
-../build/pman
+../build/xbEngine
 ```
 
 <br>
