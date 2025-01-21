@@ -1,7 +1,7 @@
 # Overview
 
 This project is a platform layer for cross platform applications or games. <br>
-The code interfaces with the OS using the [SDL2 library](https://www.libsdl.org/) as it's only dependency. <br>
+The code interfaces with the OS using [SDL2](https://www.libsdl.org/) as it's only dependency. <br>
 This is not a final platform layer but a work in progress. I hope it can be useful as a reference for anyone trying to create an engine themselves. <br>
 
 ![xbEngine](./xbEngineImg01.png)
@@ -16,8 +16,7 @@ To extend the application, call into your own code from the main loop in `sdl_xb
 
 
 # How to Build
-The project calls into SDL2 and requires a library to be available on the user's system. It can be compiled manually or the distribution's package can be used. <br>
-[Installing SDL2](https://wiki.libsdl.org/SDL2/Installation) <br>
+The project calls into SDL2 and requires a library to be available on the user's system. It can be compiled manually or the distribution's package can be used. [Installing SDL2](https://wiki.libsdl.org/SDL2/Installation) <br>
 or on ubuntu based systems: <br>
 
 ```
@@ -25,7 +24,6 @@ sudo apt update
 sudo apt install libsdl2-dev
 ```
 
-<br>
 In either case, adjust the relevant section of the Makefile to link against the library on your system. <br>
 <br>
 C++ build tools can be installed on Ubuntu based systems with: <br>
