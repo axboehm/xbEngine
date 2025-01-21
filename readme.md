@@ -8,7 +8,7 @@ The code interfaces with the OS using the SDL2 library as it's only dependency. 
 
 # Features and Usage
 The application handles audio, keyboard, mouse and controller input and the application window using SDL2. Keeping track of the timestep is part of the platform layer, allowing for the application to be framerate independent. <br>
-All platform dependent code is in the `sdl_xbEngine.cpp` file. This file also contains the entrypoint into the code. It calls into the application/game code, which is platform independent. <br>
+All platform dependent code is in the ```sdl_xbEngine.cpp```cpp file. This file also contains the entrypoint into the code. It calls into the application/game code, which is platform independent. <br>
 Memory is managed entirely in the platform dependent part. <br>
 <br>
 Running the application opens a window with a scrollable background, an audio wave (sine wave) with variable frequency controlled by the vertical mouse position and a visualization for keyboard input. <br>
