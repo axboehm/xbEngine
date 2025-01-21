@@ -19,18 +19,26 @@ To extend the application, call into your own code from the main loop in `sdl_xb
 
 # How to Build
 The project calls into SDL2 and requires a library to be available on the user's system. It can be compiled manually or the distribution's package can be used. I used version 2.30.0 but any version after 2.0.4 should work. <br>
-[SDL2 wiki](https://wiki.libsdl.org/SDL2/Installation) <br>
+[Installing SDL2](https://wiki.libsdl.org/SDL2/Installation) <br>
 or on ubuntu based systems: <br>
+`sudo apt update` <br>
 `sudo apt install libsdl2-dev` <br>
 <br>
 In either case, adjust the relevant section of the Makefile to link against the library on your system. <br>
 <br>
-C++ build tools can be installed on ubuntu based systems with: <br>
+C++ build tools can be installed on Ubuntu based systems with: <br>
+`sudo apt update` <br>
 `sudo apt install build-essential` <br>
 <br>
-I have used g++ on Linux Mint 21 using a Makefile to build. <br>
+I use G++ on Linux Mint 21 using a Makefile to build. <br>
 To build (adjust the Makefile!): <br>
 `cd src` <br>
 `make` <br>
+or directly with G++: <br>
+`cd src` <br>
+`g++ -c -o ../build/obj/sdl_xbEngine.o sdl_xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2` <br>
+`g++ -c -o ../build/obj/xbEngine.o xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2` <br>
+`g++ -o ../build/pman ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2` <br>
+
 To run: <br>
 `build/pman` <br>
