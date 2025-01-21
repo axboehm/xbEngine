@@ -1,7 +1,5 @@
 .cache
 build
 lib
-!lib/SDL/lib/libSDL2-2.0.so.0
-!lib/SDL/include/SDL2/
 thirdParty
 compile_commands.json
