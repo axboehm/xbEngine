@@ -132,17 +132,17 @@ void textureTestDEBUG(GameInput *gameInput, GameTest *gameTest,
     gameTest->offsetY +=
         (int16_t)(scrollSpeed *   (float)gameInput->controller[0].leftStickY
                                 / (float)CONTR_AXIS_NORMALIZATION           );
-    if (gameInput->s.isDown) { gameTest->offsetX -= scrollSpeed; }
-    if (gameInput->f.isDown) { gameTest->offsetX += scrollSpeed; }
-    if (gameInput->d.isDown) { gameTest->offsetY -= scrollSpeed; }
-    if (gameInput->e.isDown) { gameTest->offsetY += scrollSpeed; }
+    if (gameInput->s.isDown || gameInput->left.isDown ) { gameTest->offsetX -= scrollSpeed; }
+    if (gameInput->f.isDown || gameInput->right.isDown) { gameTest->offsetX += scrollSpeed; }
+    if (gameInput->d.isDown || gameInput->down.isDown ) { gameTest->offsetY -= scrollSpeed; }
+    if (gameInput->e.isDown || gameInput->up.isDown   ) { gameTest->offsetY += scrollSpeed; }
     
     uint32_t pitch = gameBuffer->width * gameBuffer->bytesPerPixel;
     uint8_t  *row  = (uint8_t *)gameBuffer->textureMemory;
     for (int y = 0; y < gameBuffer->height; y++) {
         uint8_t *pixel = (uint8_t *)row;
         for (int x = 0; x < gameBuffer->width; x++) {
-            uint8_t value = (uint8_t)y;
+            uint8_t value = (uint8_t)y+gameTest->offsetY;
             if (x % 256 == 0 || y % 256 == 0) { value = 0; }
             *pixel = value; // blue
             pixel++;
