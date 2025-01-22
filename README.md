@@ -17,8 +17,8 @@ To extend the application, call into your own code from the main loop in `sdl_xb
 
 # How to Build
 The project calls into SDL2 and requires the library to be available on the user's system. It can be compiled manually or the distribution's package can be used. [Installing SDL2](https://wiki.libsdl.org/SDL2/Installation) <br>
-Or on ubuntu based systems: <br>
 <br>
+Or on ubuntu based systems: <br>
 
 ```
 sudo apt update
@@ -28,7 +28,6 @@ sudo apt install libsdl2-dev
 In either case, adjust the relevant section of the Makefile to link against the library on your system. <br>
 <br>
 C++ build tools can be installed on Ubuntu based systems with: <br>
-<br>
 
 ```
 sudo apt update
@@ -59,7 +58,6 @@ g++ -o ../build/xbEngine ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -g 
 <br>
 
 To run: <br>
-<br>
 
 ```
 ../build/xbEngine
