@@ -993,7 +993,18 @@ int main(int argc, char **argv)
         gameGlobal->renderingRefreshRate = gameGlobal->monitorRefreshRate;
     }
     gameGlobal->targetTimePerFrame = 1000.0f / (float)(gameGlobal->renderingRefreshRate);
-    uint32_t targetAudioFrameLatency = 3;
+    //NOTE[ALEX]: audio to play gets queued every frame, so the audio queue needs to be filled
+    //            a sufficient amount in advance;
+    //            if there is no audio queued up, silence is put out
+    //            targetAudioFrameLatency controls the amount of frames (at 30fps)
+    //            that audio is written in advance for;
+    //            if an application targets 30 frames per seconds, this could theoretically be
+    //            reduced down to 1, however, even the slightest spike in frame time would then
+    //            cause an audible stutter, so a larger value is recommended
+    //NOTE[ALEX]: when using a software renderer with an unoptimized draw loop (like the test function),
+    //            the framerate can drop drastically on larger (~4K) resolutions or when scaling
+    //            the window, so a larger latency is chosen but should be adjusted as necessary
+    uint32_t targetAudioFrameLatency = 6;
     platformOpenSoundDevice(targetAudioFrameLatency, AUDIO_REFRESH_RATE, gameSound);
     platformInitializeControllers(gameInput);
 
