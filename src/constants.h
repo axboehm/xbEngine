@@ -55,6 +55,6 @@
 #define AUDIO_REFRESH_RATE 30
 
 // ENGINE CONSTANTS
-#define MINIMIZED_SLEEP_TIME 100 // in ms
+#define MINIMIZED_SLEEP_TIME 100
 
 #endif // include guard end
