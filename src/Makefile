@@ -15,7 +15,7 @@ INCLUDES = -I$(SDLincludeDir)
 SDLCXXFLAGS = -D_REENTRANT
 CXXFLAGS = -g -Wall -Werror $(WARNINGSDISABLED) $(DEFINES) $(SDLCXXFLAGS) $(INCLUDES)
 
-dependencies = sdl_xbEngine.h xbEngine.h xbMath.h constants.h
+dependencies = platform_xbEngine.h xbEngine.h xbMath.h constants.h
 
 objectFiles = sdl_xbEngine.o xbEngine.o
 objects = $(patsubst %,$(objectDir)/%,$(objectFiles))

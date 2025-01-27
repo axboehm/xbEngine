@@ -1,7 +1,7 @@
 #include "constants.h"
 #include "xbEngine.h"
 #include "xbMath.h"
-#include "sdl_xbEngine.h"
+#include "platform_xbEngine.h"
 
 #include <SDL.h>
 #include <SDL_audio.h>

@@ -1,5 +1,5 @@
-#ifndef SDL_XBENGINE_H // include guard begin
-#define SDL_XBENGINE_H // include guard
+#ifndef PLATFORM_XBENGINE_H // include guard begin
+#define PLATFORM_XBENGINE_H // include guard
 
 #include "xbEngine.h"
 
