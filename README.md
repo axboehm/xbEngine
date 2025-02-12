@@ -50,8 +50,8 @@ Or directly with g++: <br>
 
 ```
 cd src
-g++ -c -o ../build/obj/sdl_xbEngine.o sdl_xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
-g++ -c -o ../build/obj/xbEngine.o xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2 -lSDL2
+g++ -c -o ../build/obj/sdl_xbEngine.o sdl_xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2
+g++ -c -o ../build/obj/xbEngine.o xbEngine.cpp -g -Wall -Werror -DXB_SLOW=1 -D_REENTRANT -I/usr/include/SDL2
 g++ -o ../build/xbEngine ../build/obj/sdl_xbEngine.o ../build/obj/xbEngine.o -lSDL2
 ```
 
