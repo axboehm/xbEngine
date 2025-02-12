@@ -12,8 +12,8 @@ WARNINGSDISABLED = -Wno-unused-variable -fno-rtti -fno-exceptions -Wno-unused-bu
 
 INCLUDES = -I$(SDLincludeDir)
 
-SDLCXXFLAGS = -D_REENTRANT
-CXXFLAGS = -g -Wall -Werror $(WARNINGSDISABLED) $(DEFINES) $(SDLCXXFLAGS) $(INCLUDES)
+SDLCompileFlags = -D_REENTRANT
+CompileFlags = -g -Wall -Werror $(WARNINGSDISABLED) $(DEFINES) $(SDLCompileFlags) $(INCLUDES)
 
 dependencies = platform_xbEngine.h xbEngine.h xbMath.h constants.h
 
@@ -22,10 +22,10 @@ objects = $(patsubst %,$(objectDir)/%,$(objectFiles))
 
 $(objectDir)/%.o : %.cpp $(dependencies)
 	@mkdir -p $(objectDir)
-	$(CXX) -c -o $@ $< $(CXXFLAGS) $(LDLIBS)
+	$(CXX) -c -o $@ $< $(CompileFlags)
 
 xbEngine : $(objects)
-	$(CXX) -o $(executableDir)/$@ $^ $(CXXFLAGS) $(LDLIBS)
+	$(CXX) -o $(executableDir)/$@ $^ $(LDLIBS)
 
 clean :
 	rm -f $(objectDir)/*.o $(executableDir)/xbEngine
