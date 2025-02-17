@@ -64,3 +64,7 @@ To run: <br>
 ```
 
 <br>
+
+# Future
+
+If you are interested in seeing how I have continued to develop my engine, I post updates on my progress to my [website](https://axboehm.com/worksXB.html). <br>
