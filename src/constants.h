@@ -15,7 +15,11 @@
 //            this custom assertion crashes slower than the standard c assert but does not
 //            require the standard library's import and is only defined when specified
 #if XB_SLOW
-#define xbAssert(expression) if(!(expression)) { __builtin_trap(); }
+#define xbAssert(expression) if(!(expression)) { \
+    printf("xbAssert! %s, %s:%d - assertion '%s' failed.\n", \
+           __FILE__, __FUNCTION__, __LINE__, #expression); \
+    __builtin_trap(); \
+}
 #else
 #define xbAssert(expression)
 #endif
