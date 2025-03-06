@@ -953,13 +953,13 @@ int main(int argc, char **argv)
     printf("size of gameSound: %lu\n", sizeof(GameSound));
     printf(" -> gameMemory.permanentMem: %lu / %lu bytes used (%.04f%%).\n",
            sizeof(GameState), gameMemory.permanentMemSize,
-           (float)sizeof(GameState)/(float)gameMemory.permanentMemSize    );
+           100.0f*((float)sizeof(GameState)/(float)gameMemory.permanentMemSize));
 
     printf("gameMemory.transientMemSize: %lu\n", gameMemory.transientMemSize);
     printf("size of gameTest: %lu\n", sizeof(GameTest));
     printf(" -> gameMemory.transientMem: %lu / %lu bytes used (%.04f%%).\n",
            sizeof(GameTest), gameMemory.transientMemSize,
-           (float)sizeof(GameTest)/(float)gameMemory.transientMemSize     );
+           100.0f*((float)sizeof(GameTest)/(float)gameMemory.transientMemSize));
     printf("\n");
 #endif
 
