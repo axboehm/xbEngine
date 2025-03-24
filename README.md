@@ -1,6 +1,6 @@
 # Overview
 
-This project is a platform layer for cross platform applications or games. <br>
+This project is a platform layer for cross platform applications or games. A basic multi-threaded work queue is also implemented. <br>
 The code interfaces with the OS using [SDL2](https://wiki.libsdl.org/SDL2/FrontPage). <br>
 It is a work in progress, still I hope it can be useful as a reference for anyone trying to create an engine themselves. <br>
 
