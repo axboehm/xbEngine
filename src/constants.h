@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_H // include guard begin
 #define CONSTANTS_H // include guard
 
+#include <cstdio> // for printf in assert macro
+
 // MATH
 #define Kilobytes(value) (((uint64_t)value) * 1024LL)
 #define Megabytes(value) (((uint64_t)value) * 1024LL * 1024LL)

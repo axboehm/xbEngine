@@ -354,11 +354,11 @@ uint32_t platformGetRefreshRate(PlatformWindow *platformWindow)
 
 void platformWait(uint32_t waitTimeMilliSeconds)
 {
-    uint32_t timeToSleep = waitTimeMilliSeconds - 1; //NOTE[ALEX]: occasionally the wait call is
+    uint32_t timeToWait = waitTimeMilliSeconds - 1; //NOTE[ALEX]: occasionally the wait call is
                                                      //            not granular enough,
                                                      //            so add some slack here
-    // printf("%s sleeping %ums\n", __FUNCTION__, timeToSleep);
-    SDL_Delay(timeToSleep);
+    // printf("%s waiting %ums\n", __FUNCTION__, timeToWait);
+    SDL_Delay(timeToWait);
 }
 
 PlatformWindow *platformOpenWindow(char *windowTitle, int createWidth, int createHeight)
@@ -1260,15 +1260,15 @@ int main(int argc, char **argv)
                                                  (void *)&platformThreadInfo[i], threadStackSize);
     }
 
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA00\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA01\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA02\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA03\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA00");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA01");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA02");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA03");
     platformWait(1000);
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB00\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB01\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB02\n");
-    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB03\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB00");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB01");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB02");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB03");
     platformCompleteAllWork(workQueues->workQueue, 0);
 
     platformInit();
