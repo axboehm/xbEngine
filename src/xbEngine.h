@@ -272,12 +272,26 @@ struct GameSound {
     uint32_t targetQueuedBytes; // controls latency (how many bytes to queue up at most)
 };
 
+struct PlatformWorkQueue; //NOTE[ALEX]: blind struct to avoid including the platform header
+typedef void PlatformWorkQueueCallback(void *data, uint32_t logicalThreadID);
+typedef int32_t PlatformAddWork(PlatformWorkQueue *platformQueue,
+                                PlatformWorkQueueCallback *callback, void *data);
+typedef void PlatformCompleteWork(PlatformWorkQueue *platformQueue, uint32_t logicalThreadID);
+
+struct WorkQueues {
+    PlatformWorkQueue *workQueue; //NOTE[ALEX]: there could be multiple of these with
+                                  //            different priorities
+    PlatformAddWork      *platformAddWork;
+    PlatformCompleteWork *platformCompleteWork;
+};
+
 struct GameState {
     GameGlobal gameGlobal;
     GameInput  gameInput;
     GameClocks gameClocks;
     GameBuffer gameBuffer;
     GameSound  gameSound;
+    WorkQueues workQueues;
 };
 
 // TRANSIENT MEMORY

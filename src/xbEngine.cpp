@@ -256,7 +256,8 @@ void gameUpdate(GameState *gameState, GameTest *gameTest)
     GameBuffer *gameBuffer = &gameState->gameBuffer;
     GameSound  *gameSound  = &gameState->gameSound;
 
-    if (gameInput->esc.isDown) {
+    if (gameInput->esc.transitionCount > 1) {
+        gameInput->esc.transitionCount %= 2;
         gameGlobal->quitGame = true;
         return;
     }

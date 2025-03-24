@@ -53,6 +53,8 @@ FileReadResultDEBUG platformReadEntireFileDEBUG(char *fileName);
 void platformFreeFileMemoryDEBUG(void *memory);
 int32_t platformWriteEntireFileDEBUG(char *fileName, void *memory, uint32_t memorySize);
 
+typedef int32_t PlatformThreadFunction(void *data);
+
 void platformHandleEvents(GameInput *gameInput, GameGlobal *gameGlobal);
 
 #endif // include guard end

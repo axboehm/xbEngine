@@ -59,6 +59,9 @@
 #define AUDIO_REFRESH_RATE 30
 
 // ENGINE CONSTANTS
-#define MINIMIZED_SLEEP_TIME 100
+#define MINIMIZED_WAIT_TIME 100
+#define THREAD_COUNT 4 // including main thread
+#define THREAD_NAME "xbThread"
+#define WORK_QUEUE_ENTRIES 256
 
 #endif // include guard end

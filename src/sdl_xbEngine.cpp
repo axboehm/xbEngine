@@ -30,6 +30,268 @@ struct PlatformController {
                                //            -1 is an invalid ID and should be the initialized value
 };
 
+struct PlatformThreadInfo {
+    uint32_t           logicalThreadID;
+    PlatformWorkQueue *platformWorkQueue;
+};
+
+struct PlatformThread {
+    SDL_Thread         *threadHandle;
+    PlatformThreadInfo *platformThreadInfo;
+};
+
+struct PlatformSemaphore {
+    SDL_sem *semaphoreHandle;
+};
+
+struct PlatformAtomicInt {
+    SDL_atomic_t atomic;
+};
+
+struct PlatformWorkQueueEntry {
+    PlatformWorkQueueCallback *callback;
+    void                      *data;
+};
+
+struct PlatformWorkQueue {
+    PlatformSemaphore *platformSemaphore;
+    PlatformAtomicInt  nextEntryToWrite;
+    PlatformAtomicInt  nextEntryToRead;
+    PlatformAtomicInt  entryCompletionGoal;
+    PlatformAtomicInt  entryCompletionCount;
+    PlatformWorkQueueEntry entries[WORK_QUEUE_ENTRIES];
+};
+
+PlatformSemaphore *platformCreateSemaphore(uint32_t initialValue)
+{
+    PlatformSemaphore *platformSemaphore = (PlatformSemaphore *)malloc(sizeof(PlatformSemaphore));
+    platformSemaphore->semaphoreHandle = 0;
+
+    platformSemaphore->semaphoreHandle = SDL_CreateSemaphore(initialValue);
+    if (!platformSemaphore->semaphoreHandle) {
+        printf("%s SDL_CreateSemaphore failed\n", __FUNCTION__);
+    }
+
+    return platformSemaphore;
+}
+
+void platformDestroySemaphore(PlatformSemaphore *platformSemaphore)
+{
+    if (!platformSemaphore) {
+        printf("%s received NULL handle\n", __FUNCTION__);
+    }
+
+    if (platformSemaphore->semaphoreHandle) {
+        SDL_DestroySemaphore(platformSemaphore->semaphoreHandle);
+    } else {
+        printf("%s no semaphoreHandle to destroy\n", __FUNCTION__);
+    }
+    
+    free(platformSemaphore);
+}
+
+int32_t platformWaitOnSemaphore(PlatformSemaphore *platformSemaphore, uint32_t timeoutMs)
+{
+    if (timeoutMs == 0) {
+        timeoutMs = SDL_MUTEX_MAXWAIT;
+    }
+    int32_t result = SDL_SemWaitTimeout(platformSemaphore->semaphoreHandle, timeoutMs);
+    return result;
+}
+
+int32_t platformPostSemaphore(PlatformSemaphore *platformSemaphore)
+{
+    int32_t result = SDL_SemPost(platformSemaphore->semaphoreHandle);
+    return result;
+}
+
+int32_t platformAtomicAdd(PlatformAtomicInt *platformAtomicInt, int value)
+{
+    int32_t prevValue = SDL_AtomicAdd(&platformAtomicInt->atomic, value);
+    return prevValue;
+}
+
+int32_t platformAtomicGet(PlatformAtomicInt *platformAtomicInt)
+{
+    int32_t result = SDL_AtomicGet(&platformAtomicInt->atomic);
+    return result;
+}
+
+int32_t platformAtomicSet(PlatformAtomicInt *platformAtomicInt, int value)
+{
+    int32_t prevValue = SDL_AtomicSet(&platformAtomicInt->atomic, value);
+    return prevValue;
+}
+
+// sets atomic variable to newValue if it is currently oldValue
+// and returns whether the variable was updated or not
+int32_t platformAtomicCompareAndSwap(PlatformAtomicInt *platformAtomicInt,
+                                     int oldValue, int newValue)
+{
+    int32_t atomicVariableWasSet = SDL_AtomicCAS(&platformAtomicInt->atomic, oldValue, newValue);
+    return atomicVariableWasSet;
+}
+
+PlatformWorkQueue *platformCreateWorkQueue()
+{
+    PlatformWorkQueue *platformWorkQueue = (PlatformWorkQueue *)malloc(sizeof(PlatformWorkQueue));
+    platformWorkQueue->platformSemaphore = platformCreateSemaphore(0);
+    platformAtomicSet(&platformWorkQueue->nextEntryToWrite, 0);
+    platformAtomicSet(&platformWorkQueue->nextEntryToRead, 0);
+    platformAtomicSet(&platformWorkQueue->entryCompletionCount, 0);
+    platformAtomicSet(&platformWorkQueue->entryCompletionGoal, 0);
+
+    return platformWorkQueue;
+}
+
+void platformDestroyWorkQueue(PlatformWorkQueue *platformWorkQueue)
+{
+    if (!platformWorkQueue) {
+        printf("%s received NULL handle\n", __FUNCTION__);
+    }
+
+    if (platformWorkQueue->platformSemaphore) {
+        platformDestroySemaphore(platformWorkQueue->platformSemaphore);
+    } else {
+        printf("%s no platformSempahore to destroy\n", __FUNCTION__);
+    }
+
+    free(platformWorkQueue);
+}
+
+// this is for a single producer, only the main thread adds work
+int32_t platformAddWorkQueueEntry(PlatformWorkQueue *workQueue,
+                                  PlatformWorkQueueCallback *callback, void *data)
+{
+    int32_t couldAddEntry = 0;
+    //NOTE[ALEX]: currently only one thread can write
+    uint32_t nextEntryToWrite = platformAtomicGet(&workQueue->nextEntryToWrite);
+    uint32_t nextEntryToRead  = platformAtomicGet(&workQueue->nextEntryToRead);
+    uint32_t entryCount = sizeof(workQueue->entries)/sizeof(workQueue->entries[0]);
+    //NOTE[ALEX]: prevent both pointers from pointing to the same entry,
+    //            so that the queue can never overtake itself and become invalid
+    if ( ((nextEntryToWrite + 1) %entryCount) != nextEntryToRead) {
+        PlatformWorkQueueEntry *entry = &workQueue->entries[nextEntryToWrite];
+        entry->callback = callback;
+        entry->data     = data;
+        platformAtomicAdd(&workQueue->entryCompletionGoal, 1);
+        //NOTE[ALEX]: atomics include full memory barrier
+        if (nextEntryToWrite == entryCount - 1) {
+            platformAtomicSet(&workQueue->nextEntryToWrite, 0);
+        } else {
+            platformAtomicAdd(&workQueue->nextEntryToWrite, 1);
+        }
+        platformPostSemaphore(workQueue->platformSemaphore);
+        couldAddEntry = 1;
+    } else {
+        printf("%s could not add entry, queue is full!\n", __FUNCTION__);
+        couldAddEntry = 0;
+    }
+
+    return couldAddEntry;
+}
+
+int32_t platformDoNextWorkQueueEntry(PlatformWorkQueue *workQueue, uint32_t logicalThreadID)
+{
+    int32_t threadShouldWait = 0;
+
+    //NOTE[ALEX]: assume that acquiring work succeeds, then check afterwards
+    uint32_t nextEntryToWrite = platformAtomicGet(&workQueue->nextEntryToWrite);
+    uint32_t nextEntryToRead  = platformAtomicGet(&workQueue->nextEntryToRead);
+    if (nextEntryToWrite != nextEntryToRead) {
+        //NOTE[ALEX]: if there were only one consumer, then an atomic add would be sufficient
+        uint32_t entryCount         = sizeof(workQueue->entries)/sizeof(workQueue->entries[0]);
+        uint32_t newNextEntryToRead = (nextEntryToRead + 1) % entryCount;
+        int32_t  gotEntry = platformAtomicCompareAndSwap(&workQueue->nextEntryToRead,
+                                                         nextEntryToRead, newNextEntryToRead);
+        if (gotEntry) {
+            PlatformWorkQueueEntry entry = workQueue->entries[nextEntryToRead];
+            entry.callback(entry.data, logicalThreadID);
+            //NOTE[ALEX]: atomics include full memory barrier
+            platformAtomicAdd(&workQueue->entryCompletionCount, 1);
+        }
+    } else {
+        threadShouldWait = 1;
+    }
+    
+    return threadShouldWait;
+}
+
+void platformResetWorkQueue(PlatformWorkQueue *workQueue)
+{
+    platformAtomicSet(&workQueue->entryCompletionGoal, 0);
+    platformAtomicSet(&workQueue->entryCompletionCount, 0);
+}
+
+// this makes the thread that is calling this participate in processing the queue
+// until all queued work is completed
+void platformCompleteAllWork(PlatformWorkQueue *workQueue, uint32_t logicalThreadID)
+{
+    while (   platformAtomicGet(&workQueue->entryCompletionGoal)
+           != platformAtomicGet(&workQueue->entryCompletionCount)) {
+        platformDoNextWorkQueueEntry(workQueue, logicalThreadID);
+    }
+
+    platformResetWorkQueue(workQueue);
+}
+
+void doQueueWorkPrint(void *data, uint32_t logicalThreadID)
+{
+    xbAssert(data != NULL);
+    printf("Thread %u: %s\n", logicalThreadID, (char *)data);
+}
+
+int32_t threadProc(void *data) {
+    PlatformThreadInfo *threadInfo = (PlatformThreadInfo *)data;
+    printf("%s started for thred: %u\n", __FUNCTION__, threadInfo->logicalThreadID);
+
+    while (true) {
+        if (platformDoNextWorkQueueEntry(threadInfo->platformWorkQueue,
+                                         threadInfo->logicalThreadID)) {
+            printf("%s thread %u goes to wait on semaphore\n",
+                   __FUNCTION__, threadInfo->logicalThreadID);
+            platformWaitOnSemaphore(threadInfo->platformWorkQueue->platformSemaphore, 0);
+        }
+    }
+}
+
+//NOTE[ALEX]: threadName has different lengths on different platforms, SDL will try to munge the
+//            string but try to stick to < 8 bytes for the name (excluding \0), so 31 characters
+//NOTE[ALEX]: stackSize of 0 will initialize with system default stack size
+PlatformThread *platformCreateThread(PlatformThreadFunction platformThreadFunction,
+                                     char *threadName, void *threadData, size_t stackSize)
+{
+    PlatformThread *platformThread = (PlatformThread *)malloc(sizeof(PlatformThread));
+    platformThread->threadHandle       = 0;
+    platformThread->platformThreadInfo = 0;
+
+    //NOTE[ALEX]: in SDL2.1 stack size may be folded into SDL_CreateThread()
+    platformThread->threadHandle = SDL_CreateThreadWithStackSize(platformThreadFunction,
+                                                                 threadName, stackSize, threadData);
+    if (platformThread->threadHandle) {
+        platformThread->platformThreadInfo = (PlatformThreadInfo *)threadData;
+    } else {
+        printf("%s SDL_CreateThreadWithStackSize failed\n", __FUNCTION__);
+    }
+
+    return platformThread;
+}
+
+void platformCleanupThread(PlatformThread *platformThread)
+{
+    if (!platformThread) {
+        printf("%s received NULL handle\n", __FUNCTION__);
+    }
+
+    if (platformThread->threadHandle) {
+        SDL_DetachThread(platformThread->threadHandle);
+    } else {
+        printf("%s no threadHandle to clean up\n", __FUNCTION__);
+    }
+
+    free(platformThread);
+}
+
 void platformInit()
 {
     int sdlInitCode = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO);
@@ -124,6 +386,10 @@ PlatformWindow *platformOpenWindow(char *windowTitle, int createWidth, int creat
 
 void platformCloseWindow(PlatformWindow *platformWindow)
 {
+    if (!platformWindow) {
+        printf("%s received NULL handle\n", __FUNCTION__);
+    }
+
     if (platformWindow->window) {
         SDL_DestroyWindow(platformWindow->window);
     } else {
@@ -137,11 +403,7 @@ void platformCloseWindow(PlatformWindow *platformWindow)
     
     SDL_Quit();
 
-    if (platformWindow) {
-        free(platformWindow);
-    } else {
-        printf("%s no platformWindow memory to free\n", __FUNCTION__);
-    }
+    free(platformWindow);
 }
 
 void platformOpenBackBuffer(GameBuffer *gameBuffer)
@@ -972,6 +1234,7 @@ int main(int argc, char **argv)
     GameClocks *gameClocks = &gameState->gameClocks;
     GameBuffer *gameBuffer = &gameState->gameBuffer;
     GameSound  *gameSound  = &gameState->gameSound;
+    WorkQueues *workQueues = &gameState->workQueues;
 
     xbAssert(   &gameInput->terminatorMouse - &gameInput->mButtons[0]
              == sizeof(gameInput->mButtons)/sizeof(gameInput->mButtons[0]));
@@ -979,6 +1242,34 @@ int main(int argc, char **argv)
              == sizeof(gameInput->keys)/sizeof(gameInput->keys[0]));
     xbAssert(   &gameInput->controller[0].terminatorContr - &gameInput->controller[0].buttons[0]
              == sizeof(gameInput->controller[0].buttons)/sizeof(gameInput->controller[0].buttons[0]));
+
+    workQueues->workQueue            = platformCreateWorkQueue();
+    workQueues->platformAddWork      = platformAddWorkQueueEntry;
+    workQueues->platformCompleteWork = platformCompleteAllWork;
+
+    const uint32_t threadCount = THREAD_COUNT;
+    PlatformThreadInfo  platformThreadInfo[threadCount];
+    PlatformThread     *platformThread[threadCount];
+    char *threadName = (char *)THREAD_NAME;
+    size_t threadStackSize = 0;
+    for (uint32_t i = 0; i < threadCount; i++) {
+        platformThreadInfo[i] = {};
+        platformThreadInfo[i].logicalThreadID = i + 1; //NOTE[ALEX]: 0 is reserverd for main thread
+        platformThreadInfo[i].platformWorkQueue = workQueues->workQueue;
+        platformThread[i] = platformCreateThread(threadProc, threadName,
+                                                 (void *)&platformThreadInfo[i], threadStackSize);
+    }
+
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA00\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA01\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA02\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA03\n");
+    platformWait(1000);
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB00\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB01\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB02\n");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB03\n");
+    platformCompleteAllWork(workQueues->workQueue, 0);
 
     platformInit();
     gameBuffer->platformWindow = platformOpenWindow((char *)WINDOW_TITLE,
@@ -1021,7 +1312,7 @@ int main(int argc, char **argv)
         platformHandleEvents(gameBuffer, gameInput, gameGlobal);
 
         if (gameGlobal->stopRendering) {
-            platformWait(MINIMIZED_SLEEP_TIME);
+            platformWait(MINIMIZED_WAIT_TIME);
             continue;
         }
 
@@ -1060,6 +1351,11 @@ int main(int argc, char **argv)
     }
 
     // CLEANUP
+    for (uint32_t i = 0; i < threadCount; i++) {
+        platformCleanupThread(platformThread[i]);
+    }
+    platformDestroyWorkQueue(workQueues->workQueue);
+
     platformCloseControllers(gameInput);
     platformCloseSoundDevice();
     platformCloseWindow((PlatformWindow *)gameBuffer->platformWindow);
