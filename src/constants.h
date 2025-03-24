@@ -33,6 +33,7 @@
 // #define INPUT_TEST_AXES
 // #define INPUT_TEST_PRESSES
 #define INPUT_TEST_DOWNS
+#define MULTI_THREADING_TEST
 
 // WINDOW & GAMEBUFFER
 #define WINDOW_TITLE "xbEngine_Window_Title"
@@ -62,7 +63,7 @@
 
 // ENGINE CONSTANTS
 #define MINIMIZED_WAIT_TIME 100
-#define THREAD_COUNT 4 // including main thread
+#define THREAD_COUNT 3 // excluding main thread
 #define THREAD_NAME "xbThread"
 #define WORK_QUEUE_ENTRIES 256
 

@@ -243,12 +243,12 @@ void doQueueWorkPrint(void *data, uint32_t logicalThreadID)
 
 int32_t threadProc(void *data) {
     PlatformThreadInfo *threadInfo = (PlatformThreadInfo *)data;
-    printf("%s started for thred: %u\n", __FUNCTION__, threadInfo->logicalThreadID);
+    printf("%s started for thread: %u\n", __FUNCTION__, threadInfo->logicalThreadID);
 
     while (true) {
         if (platformDoNextWorkQueueEntry(threadInfo->platformWorkQueue,
                                          threadInfo->logicalThreadID)) {
-            printf("%s thread %u goes to wait on semaphore\n",
+            printf("%s Thread %u goes to wait on semaphore\n",
                    __FUNCTION__, threadInfo->logicalThreadID);
             platformWaitOnSemaphore(threadInfo->platformWorkQueue->platformSemaphore, 0);
         }
@@ -1260,16 +1260,30 @@ int main(int argc, char **argv)
                                                  (void *)&platformThreadInfo[i], threadStackSize);
     }
 
+#ifdef MULTI_THREADING_TEST
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA00");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA01");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA02");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA03");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA04");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA05");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA06");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA07");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA08");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testA09");
     platformWait(1000);
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB00");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB01");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB02");
     platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB03");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB04");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB05");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB06");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB07");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB08");
+    platformAddWorkQueueEntry(workQueues->workQueue, doQueueWorkPrint, (char *)"testB09");
     platformCompleteAllWork(workQueues->workQueue, 0);
+#endif
 
     platformInit();
     gameBuffer->platformWindow = platformOpenWindow((char *)WINDOW_TITLE,
